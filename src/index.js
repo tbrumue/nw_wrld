@@ -12,6 +12,9 @@ const InputManager = require("./main/InputManager");
 const {
   ensureWorkspaceStarterModules,
 } = require("./main/workspaceStarterModules");
+const {
+  ensureWorkspaceStarterAssets,
+} = require("./main/workspaceStarterAssets");
 const { DEFAULT_USER_DATA } = require("./shared/config/defaultConfig");
 
 app.setName("nw_wrld");
@@ -304,6 +307,10 @@ const ensureWorkspaceScaffold = async (workspacePath) => {
   const modulesDir = path.join(workspacePath, "modules");
   try {
     fs.mkdirSync(modulesDir, { recursive: true });
+  } catch {}
+
+  try {
+    ensureWorkspaceStarterAssets(workspacePath);
   } catch {}
 
   try {

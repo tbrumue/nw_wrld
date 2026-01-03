@@ -1,6 +1,17 @@
 const { ModuleBase } = globalThis.nwWrldSdk || {};
 const p5 = globalThis.p5;
 
+const getSdkMeteorDataset = async () => {
+  try {
+    const sdk = globalThis.nwWrldSdk || {};
+    if (typeof sdk.loadJson !== "function") return null;
+    const data = await sdk.loadJson("json/meteor.json");
+    return Array.isArray(data) ? data : null;
+  } catch {
+    return null;
+  }
+};
+
 const makeRandomMeteor = () => {
   const mass = 10 + Math.random() * 500;
   const lon = -180 + Math.random() * 360;
@@ -34,6 +45,7 @@ class AsteroidGraph extends ModuleBase {
     super(container);
     this.name = AsteroidGraph.name;
     this.meteors = [];
+    this.dataset = null;
     this.myp5 = null;
     this.init();
   }
@@ -114,9 +126,34 @@ class AsteroidGraph extends ModuleBase {
     this.myp5 = new p5(sketch);
   }
 
-  loadMeteors({ count = 5 } = {}) {
+  async loadMeteors({ count = 5 } = {}) {
     const safeCount = Math.max(0, Math.min(50, Number(count) || 0));
     this.meteors = [];
+    if (!this.dataset) {
+      this.dataset = await getSdkMeteorDataset();
+    }
+
+    if (this.dataset && this.dataset.length > 0 && this.myp5) {
+      for (let i = 0; i < safeCount; i++) {
+        const raw =
+          this.dataset[Math.floor(this.myp5.random(this.dataset.length))];
+        const mass = Number(raw?.mass);
+        const coords = raw?.geolocation?.coordinates;
+        const lon = Number(coords?.[0]);
+        const lat = Number(coords?.[1]);
+        this.meteors.push({
+          mass: Number.isFinite(mass) ? mass : 10 + Math.random() * 500,
+          geolocation: {
+            coordinates: [
+              Number.isFinite(lon) ? lon : -180 + Math.random() * 360,
+              Number.isFinite(lat) ? lat : -90 + Math.random() * 180,
+            ],
+          },
+        });
+      }
+      return;
+    }
+
     for (let i = 0; i < safeCount; i++) {
       this.meteors.push(makeRandomMeteor());
     }
