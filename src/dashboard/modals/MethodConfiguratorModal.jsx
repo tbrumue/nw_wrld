@@ -11,6 +11,8 @@ import { Button } from "../components/Button.js";
 import { Select } from "../components/FormInputs.js";
 import { HelpIcon } from "../components/HelpIcon.js";
 import { MethodBlock } from "../components/MethodBlock.js";
+import { Tooltip } from "../components/Tooltip.js";
+import { FaExclamationTriangle } from "react-icons/fa";
 import {
   userDataAtom,
   selectedChannelAtom,
@@ -124,6 +126,9 @@ export const MethodConfiguratorModal = ({
   predefinedModules,
   onEditChannel,
   onDeleteChannel,
+  workspacePath = null,
+  workspaceModuleFiles = [],
+  workspaceModuleLoadFailures = [],
 }) => {
   const [userData, setUserData] = useAtom(userDataAtom);
   const [selectedChannel] = useAtom(selectedChannelAtom);
@@ -134,6 +139,29 @@ export const MethodConfiguratorModal = ({
     if (!selectedChannel) return null;
     return predefinedModules.find((m) => m.name === selectedChannel.moduleType);
   }, [predefinedModules, selectedChannel]);
+
+  const selectedModuleType = selectedChannel?.moduleType || null;
+  const isWorkspaceMode = Boolean(workspacePath);
+  const workspaceFileSet = useMemo(() => {
+    return new Set((workspaceModuleFiles || []).filter(Boolean));
+  }, [workspaceModuleFiles]);
+  const workspaceFailureSet = useMemo(() => {
+    return new Set((workspaceModuleLoadFailures || []).filter(Boolean));
+  }, [workspaceModuleLoadFailures]);
+  const isFileMissing =
+    isWorkspaceMode &&
+    selectedModuleType &&
+    !workspaceFileSet.has(selectedModuleType);
+  const isLoadFailed =
+    isWorkspaceMode &&
+    selectedModuleType &&
+    workspaceFileSet.has(selectedModuleType) &&
+    workspaceFailureSet.has(selectedModuleType);
+  const missingReasonText = isFileMissing
+    ? `Module "${selectedModuleType}" was referenced by this track but "${selectedModuleType}.js" was not found in your workspace modules folder.`
+    : isLoadFailed
+    ? `Module "${selectedModuleType}.js" exists in your workspace but failed to load. Fix the module file (syntax/runtime error) and save to retry.`
+    : `Module "${selectedModuleType}" is not available in the current workspace scan.`;
 
   const [activeSetId] = useAtom(activeSetIdAtom);
   const methodConfigs = useMemo(() => {
@@ -270,6 +298,7 @@ export const MethodConfiguratorModal = ({
   );
 
   const methodLayers = useMemo(() => {
+    if (!module) return [];
     return getMethodsByLayer(module, moduleBase, threeBase);
   }, [module, moduleBase, threeBase]);
 
@@ -296,14 +325,24 @@ export const MethodConfiguratorModal = ({
     return layersWithMethods;
   }, [methodLayers, methodConfigs, availableMethods]);
 
-  if (!isOpen || !selectedChannel || !module) return null;
+  if (!isOpen || !selectedChannel) return null;
+  if (!module && !isWorkspaceMode) return null;
 
   const modalTitle = (
     <>
-      {module.name}{" "}
+      {module ? module.name : selectedChannel.moduleType}{" "}
       {selectedChannel.isConstructor
         ? "(Constructor)"
         : `(Channel ${selectedChannel.channelNumber})`}
+      {!module && isWorkspaceMode ? (
+        <span className="ml-2 inline-flex items-center">
+          <Tooltip content={missingReasonText} position="top">
+            <span className="text-red-500/70 text-[11px] cursor-help">
+              <FaExclamationTriangle />
+            </span>
+          </Tooltip>
+        </span>
+      ) : null}
       {selectedChannel.isConstructor ? (
         <HelpIcon helpText={HELP_TEXT.constructor} />
       ) : (
@@ -311,6 +350,19 @@ export const MethodConfiguratorModal = ({
       )}
     </>
   );
+
+  if (!module && isWorkspaceMode) {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} position="bottom" size="full">
+        <ModalHeader title={modalTitle} onClose={onClose} />
+        <div className="px-6 py-6">
+          <div className="text-neutral-300/70 text-[11px] font-mono">
+            {missingReasonText}
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <>

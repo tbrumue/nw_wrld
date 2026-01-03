@@ -22,7 +22,12 @@ const Modal = ({ isOpen, onClose, children, size = "small" }) => {
   );
 };
 
-export const NewModuleDialog = ({ isOpen, onClose, onCreateModule }) => {
+export const NewModuleDialog = ({
+  isOpen,
+  onClose,
+  onCreateModule,
+  workspacePath = null,
+}) => {
   const [moduleName, setModuleName] = useState("");
   const [templateType, setTemplateType] = useState("basic");
   const [error, setError] = useState("");
@@ -39,8 +44,14 @@ export const NewModuleDialog = ({ isOpen, onClose, onCreateModule }) => {
 
     // Check if file already exists
     try {
-      const srcDir = path.join(__dirname, "..", "..");
-      const filePath = path.join(srcDir, "projector", "modules", `${name}.js`);
+      const filePath = workspacePath
+        ? path.join(workspacePath, "modules", `${name}.js`)
+        : path.join(
+            path.join(__dirname, "..", ".."),
+            "projector",
+            "modules",
+            `${name}.js`
+          );
       if (fs.existsSync(filePath)) {
         return "A module with this name already exists";
       }
@@ -81,8 +92,13 @@ export const NewModuleDialog = ({ isOpen, onClose, onCreateModule }) => {
       <div className="p-6 flex flex-col gap-4">
         <p className="text-neutral-500 text-[11px] font-mono">
           Once you create a module, you can edit it in your code editor. The
-          module will be saved in the <code>src/projector/modules</code>{" "}
-          directory.
+          module will be saved in{" "}
+          <code>
+            {workspacePath
+              ? path.join(workspacePath, "modules")
+              : "src/projector/modules"}
+          </code>
+          .
         </p>
         <div>
           <Label>Module Name</Label>

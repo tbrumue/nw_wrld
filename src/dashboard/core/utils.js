@@ -3,6 +3,7 @@ import path from "path";
 import { produce } from "immer";
 import { migrateToSets, getActiveSet } from "../../shared/utils/setUtils.js";
 import { DEFAULT_GLOBAL_MAPPINGS } from "../../shared/config/defaultConfig.js";
+import { getJsonFilePath } from "../../shared/json/jsonFileBase.js";
 import {
   atomicWriteFile,
   atomicWriteFileSync,
@@ -171,9 +172,7 @@ const updateUserData = (setUserData, updater) => {
 };
 
 const getUserDataPath = () => {
-  const srcDir = path.join(__dirname, "..", "..");
-  const userDataPath = path.join(srcDir, "shared", "json", "userData.json");
-  return userDataPath;
+  return getJsonFilePath("userData.json");
 };
 
 const loadUserData = async () => {

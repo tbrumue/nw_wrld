@@ -6,6 +6,7 @@ package-lock.json
 dist/
 build/
 out/
+src/shared/json/*.json
 
 # Logs
 logs/

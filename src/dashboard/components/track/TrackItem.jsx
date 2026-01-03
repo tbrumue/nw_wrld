@@ -36,6 +36,9 @@ export const TrackItem = React.memo(
     isSequencerPlaying,
     sequencerCurrentStep,
     handleSequencerToggle,
+    workspacePath = null,
+    workspaceModuleFiles = [],
+    workspaceModuleLoadFailures = [],
   }) => {
     const [userData, setUserData] = useAtom(userDataAtom);
     const [recordingData] = useAtom(recordingDataAtom);
@@ -287,6 +290,9 @@ export const TrackItem = React.memo(
                             isSequencerPlaying={isSequencerPlaying}
                             sequencerCurrentStep={sequencerCurrentStep}
                             handleSequencerToggle={handleSequencerToggle}
+                            workspacePath={workspacePath}
+                            workspaceModuleFiles={workspaceModuleFiles}
+                            workspaceModuleLoadFailures={workspaceModuleLoadFailures}
                           />
                         </div>
                       </div>

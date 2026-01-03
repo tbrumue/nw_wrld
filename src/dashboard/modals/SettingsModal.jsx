@@ -67,6 +67,8 @@ export const SettingsModal = ({
   onOpenMappings,
   config,
   updateConfig,
+  workspacePath,
+  onSelectWorkspace,
 }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
@@ -242,8 +244,23 @@ export const SettingsModal = ({
           setBgColor={setBgColor}
           settings={settings}
         />
+
+        <div className="flex flex-col gap-2 font-mono border-t border-neutral-800 pt-6">
+          <div className="pl-12">
+            <div className="opacity-50 mb-1 text-[11px]">
+              Modules Workspace:
+            </div>
+            <div className="text-[11px] text-neutral-300/70 break-all">
+              {workspacePath || "Not set"}
+            </div>
+          </div>
+          <div className="pl-12">
+            <Button onClick={onSelectWorkspace} className="w-full">
+              {workspacePath ? "CHANGE WORKSPACE" : "SELECT WORKSPACE"}
+            </Button>
+          </div>
+        </div>
       </div>
     </Modal>
   );
 };
-

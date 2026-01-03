@@ -15,8 +15,10 @@ import {
 import { ipcRenderer } from "electron"; // IPC communication
 import fs from "fs"; // File system module
 import path from "path"; // Path module
+import { pathToFileURL } from "url";
 import { buildMidiConfig } from "../shared/midi/midiUtils.js";
 import { loadSettingsSync } from "../shared/json/configUtils.js";
+import { getJsonFilePath } from "../shared/json/jsonFileBase.js";
 import { getActiveSetTracks, migrateToSets } from "../shared/utils/setUtils.js";
 import logger from "./helpers/logger.js";
 
@@ -61,23 +63,75 @@ const Projector = {
   activeModules: {},
   activeChannelHandlers: {},
   moduleClassCache: new Map(),
+  workspaceModuleClassCache: new Map(),
+  workspacePath: null,
   async loadModuleClass(moduleType) {
     if (!moduleType) {
       return null;
     }
 
-    if (this.moduleClassCache.has(moduleType)) {
-      return this.moduleClassCache.get(moduleType);
+    const safeModuleType = String(moduleType).trim();
+    if (!safeModuleType) {
+      return null;
+    }
+    if (!/^[A-Za-z][A-Za-z0-9]*$/.test(safeModuleType)) {
+      throw new Error(
+        `[Projector] Invalid module type "${safeModuleType}" (expected alphanumeric class/file name, no paths).`
+      );
     }
 
-    const loaderPromise = import(`./modules/${moduleType}.js`)
+    if (this.workspacePath) {
+      const modulesDir = path.resolve(this.workspacePath, "modules");
+      const fullPath = path.resolve(modulesDir, `${safeModuleType}.js`);
+      const modulesDirWithSep = modulesDir.endsWith(path.sep)
+        ? modulesDir
+        : `${modulesDir}${path.sep}`;
+      if (!fullPath.startsWith(modulesDirWithSep)) {
+        throw new Error(
+          `[Projector] Refusing to load module outside workspace modules directory: "${safeModuleType}".`
+        );
+      }
+      let mtimeMs = null;
+      try {
+        mtimeMs = fs.statSync(fullPath).mtimeMs;
+      } catch (e) {
+        throw e;
+      }
+
+      const cacheKey = `${safeModuleType}:${mtimeMs}`;
+      if (this.workspaceModuleClassCache.has(cacheKey)) {
+        return this.workspaceModuleClassCache.get(cacheKey);
+      }
+
+      const fileUrl = `${pathToFileURL(fullPath).href}?t=${mtimeMs}`;
+      const loaderPromise = import(/* webpackIgnore: true */ fileUrl)
+        .then((module) => module.default)
+        .catch((error) => {
+          this.workspaceModuleClassCache.delete(cacheKey);
+          throw error;
+        });
+
+      for (const key of this.workspaceModuleClassCache.keys()) {
+        if (key.startsWith(`${safeModuleType}:`) && key !== cacheKey) {
+          this.workspaceModuleClassCache.delete(key);
+        }
+      }
+      this.workspaceModuleClassCache.set(cacheKey, loaderPromise);
+      return loaderPromise;
+    }
+
+    if (this.moduleClassCache.has(safeModuleType)) {
+      return this.moduleClassCache.get(safeModuleType);
+    }
+
+    const loaderPromise = import(`./modules/${safeModuleType}.js`)
       .then((module) => module.default)
       .catch((error) => {
-        this.moduleClassCache.delete(moduleType);
+        this.moduleClassCache.delete(safeModuleType);
         throw error;
       });
 
-    this.moduleClassCache.set(moduleType, loaderPromise);
+    this.moduleClassCache.set(safeModuleType, loaderPromise);
     return loaderPromise;
   },
   userData: [],
@@ -123,6 +177,10 @@ const Projector = {
     ipcRenderer.send("projector-to-dashboard", {
       type: "projector-ready",
       props: {},
+    });
+
+    ipcRenderer.on("workspace:modulesChanged", () => {
+      this.workspaceModuleClassCache.clear();
     });
 
     // IPC listener for receiving updated userData from Dashboard
@@ -456,9 +514,8 @@ const Projector = {
   },
 
   loadUserData(activeSetIdOverride = null) {
-    const srcDir = path.join(__dirname, "..", "..");
-    const userDataPath = path.join(srcDir, "shared", "json", "userData.json");
-    const appStatePath = path.join(srcDir, "shared", "json", "appState.json");
+    const userDataPath = getJsonFilePath("userData.json");
+    const appStatePath = getJsonFilePath("appState.json");
     console.log("🔍 [Projector] __dirname:", __dirname);
     console.log("🔍 [Projector] userDataPath:", userDataPath);
     console.log("🔍 [Projector] appStatePath:", appStatePath);
@@ -476,6 +533,7 @@ const Projector = {
           const appStateData = fs.readFileSync(appStatePath, "utf-8");
           const appState = JSON.parse(appStateData);
           activeSetId = appState.activeSetId;
+          this.workspacePath = appState.workspacePath || null;
           console.log(
             "🔍 [Projector] Loaded activeSetId from appState:",
             activeSetId
@@ -484,6 +542,7 @@ const Projector = {
           console.warn(
             "⚠️ [Projector] Could not load appState.json, falling back to default set"
           );
+          this.workspacePath = null;
           activeSetId = null;
         }
       }

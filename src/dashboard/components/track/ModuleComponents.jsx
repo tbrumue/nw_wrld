@@ -31,6 +31,8 @@ import {
 } from "../../../shared/midi/midiUtils.js";
 import { Button } from "../Button.js";
 import { FaPlus } from "react-icons/fa";
+import { FaExclamationTriangle } from "react-icons/fa";
+import { Tooltip } from "../Tooltip.js";
 
 export const ModuleSelector = React.memo(
   ({
@@ -109,6 +111,9 @@ export const NoteSelector = React.memo(
     isSequencerPlaying,
     sequencerCurrentStep,
     handleSequencerToggle,
+    workspacePath = null,
+    workspaceModuleFiles = [],
+    workspaceModuleLoadFailures = [],
   }) => {
     const [userData, setUserData] = useAtom(userDataAtom);
     const [recordingData] = useAtom(recordingDataAtom);
@@ -126,6 +131,26 @@ export const NoteSelector = React.memo(
 
     const globalMappings = userData.config || {};
     const currentInputType = inputConfig?.type || "midi";
+
+    const workspaceFileSet = useMemo(() => {
+      return new Set((workspaceModuleFiles || []).filter(Boolean));
+    }, [workspaceModuleFiles]);
+    const workspaceFailureSet = useMemo(() => {
+      return new Set((workspaceModuleLoadFailures || []).filter(Boolean));
+    }, [workspaceModuleLoadFailures]);
+    const isWorkspaceMode = Boolean(workspacePath);
+    const isFileMissing =
+      isWorkspaceMode && moduleType && !workspaceFileSet.has(moduleType);
+    const isLoadFailed =
+      isWorkspaceMode &&
+      moduleType &&
+      workspaceFileSet.has(moduleType) &&
+      workspaceFailureSet.has(moduleType);
+    const moduleWarningText = isFileMissing
+      ? `Module "${moduleType}" was referenced by this track but "${moduleType}.js" was not found in your workspace modules folder.`
+      : isLoadFailed
+      ? `Module "${moduleType}.js" exists in your workspace but failed to load. Fix the module file (syntax/runtime error) and save to retry.`
+      : null;
 
     // State to store the loaded channels data
     const [channelsData, setChannelsData] = useState(null);
@@ -330,6 +355,15 @@ export const NoteSelector = React.memo(
         <div className="mb-2 flex flex-wrap items-center justify-between">
           <span className="text-neutral-500 text-sm">
             <span>[MODULE]</span> {moduleType}
+            {moduleWarningText ? (
+              <span className="ml-2 inline-flex items-center">
+                <Tooltip content={moduleWarningText} position="top">
+                  <span className="text-red-500/70 text-[11px] cursor-help">
+                    <FaExclamationTriangle />
+                  </span>
+                </Tooltip>
+              </span>
+            ) : null}
           </span>
           <div className="flex items-center gap-2">
             {dragHandleProps && (
@@ -530,6 +564,9 @@ export const SortableModuleItem = React.memo(
     isSequencerPlaying,
     sequencerCurrentStep,
     handleSequencerToggle,
+    workspacePath = null,
+    workspaceModuleFiles = [],
+    workspaceModuleLoadFailures = [],
   }) => {
     return (
       <SortableWrapper id={id}>
@@ -548,6 +585,9 @@ export const SortableModuleItem = React.memo(
                 isSequencerPlaying={isSequencerPlaying}
                 sequencerCurrentStep={sequencerCurrentStep}
                 handleSequencerToggle={handleSequencerToggle}
+                workspacePath={workspacePath}
+                workspaceModuleFiles={workspaceModuleFiles}
+                workspaceModuleLoadFailures={workspaceModuleLoadFailures}
               />
             </div>
           </div>

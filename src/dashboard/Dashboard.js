@@ -10,6 +10,7 @@ import { createRoot } from "react-dom/client";
 import { atom, useAtom } from "jotai";
 import fs from "fs";
 import path from "path";
+import { pathToFileURL } from "url";
 import {
   FaBars,
   FaCog,
@@ -39,6 +40,7 @@ import {
 } from "../shared/json/recordingUtils.js";
 import {
   loadAppState,
+  loadAppStateSync,
   saveAppState,
   saveAppStateSync,
 } from "../shared/json/appStateUtils.js";
@@ -314,10 +316,12 @@ const Dashboard = () => {
 
   const activeTrackIdRef = useRef(activeTrackId);
   const activeSetIdRef = useRef(activeSetId);
+  const workspacePathRef = useRef(workspacePath);
   useEffect(() => {
     activeTrackIdRef.current = activeTrackId;
     activeSetIdRef.current = activeSetId;
-  }, [activeTrackId, activeSetId]);
+    workspacePathRef.current = workspacePath;
+  }, [activeTrackId, activeSetId, workspacePath]);
 
   // Recording state management
   const [recordingState, setRecordingState] = useAtom(recordingStateAtom);
@@ -398,10 +402,13 @@ const Dashboard = () => {
         // Now do sync saves with latest state
         saveUserDataSync(userDataRef.current);
         saveRecordingDataSync(recordingDataRef.current);
+        const currentAppState = loadAppStateSync();
         const appStateToSave = {
+          ...currentAppState,
           activeTrackId: activeTrackIdRef.current,
           activeSetId: activeSetIdRef.current,
           sequencerMuted: sequencerMutedRef.current,
+          workspacePath: workspacePathRef.current,
         };
         saveAppStateSync(appStateToSave);
       } catch (e) {
@@ -449,6 +456,11 @@ const Dashboard = () => {
   const [sequencerCurrentStep, setSequencerCurrentStep] = useState(0);
   const [isSequencerMuted, setIsSequencerMuted] = useState(false);
   const [isProjectorReady, setIsProjectorReady] = useState(false);
+  const [workspacePath, setWorkspacePath] = useState(null);
+  const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
+  const [workspaceModuleFiles, setWorkspaceModuleFiles] = useState([]);
+  const [workspaceModuleLoadFailures, setWorkspaceModuleLoadFailures] =
+    useState([]);
   const sequencerEngineRef = useRef(null);
   const sequencerAudioRef = useRef(null);
   const sequencerMutedRef = useRef(false);
@@ -610,11 +622,20 @@ const Dashboard = () => {
       return;
     }
 
-    saveAppState({
-      activeTrackId,
-      activeSetId,
-      sequencerMuted: isSequencerMuted,
-    });
+    const updateAppState = async () => {
+      const currentState = await loadAppState();
+      const preservedWorkspacePath =
+        workspacePathRef.current ?? currentState.workspacePath ?? null;
+      const stateToSave = {
+        ...currentState,
+        activeTrackId,
+        activeSetId,
+        sequencerMuted: isSequencerMuted,
+        workspacePath: preservedWorkspacePath,
+      };
+      await saveAppState(stateToSave);
+    };
+    updateAppState();
   }, [isSequencerMuted, activeTrackId, activeSetId]);
 
   const isInitialMountInput = useRef(true);
@@ -908,6 +929,8 @@ const Dashboard = () => {
     }
   });
 
+  const ipcInvoke = useIPCInvoke();
+
   const pauseAllPlayback = useCallback(() => {
     if (sequencerEngineRef.current) {
       sequencerEngineRef.current.stop();
@@ -928,8 +951,60 @@ const Dashboard = () => {
     setFooterPlaybackState({});
   }, []);
 
-  const loadModules = useCallback(() => {
+  const loadModules = useCallback(async () => {
     try {
+      if (workspacePath) {
+        const modulesDir = path.join(workspacePath, "modules");
+        let entries = [];
+        let hadImportError = false;
+        const loadFailures = new Set();
+        try {
+          entries = await fs.promises.readdir(modulesDir);
+        } catch {
+          entries = [];
+        }
+        const jsFiles = entries.filter((f) => f.endsWith(".js"));
+        setWorkspaceModuleFiles(
+          jsFiles.map((f) => path.basename(f, ".js")).filter(Boolean)
+        );
+
+        const modules = await Promise.all(
+          jsFiles.map(async (file) => {
+            const fullPath = path.join(modulesDir, file);
+            try {
+              const fileUrl = pathToFileURL(fullPath).href;
+              const imported = await import(/* webpackIgnore: true */ fileUrl);
+              const mod = imported?.default || imported;
+              if (!mod?.name) {
+                console.warn(
+                  `Skipping module ${file}: missing required static property "name".`
+                );
+                return null;
+              }
+              return {
+                name: mod.name,
+                category: mod.category || "Undefined",
+                methods: mod.methods || [],
+              };
+            } catch (e) {
+              hadImportError = true;
+              loadFailures.add(path.basename(file, ".js"));
+              console.error(`Error loading workspace module ${file}:`, e);
+              return null;
+            }
+          })
+        );
+
+        const validModules = modules.filter(Boolean);
+        setPredefinedModules(validModules);
+        setWorkspaceModuleLoadFailures(Array.from(loadFailures));
+        if (!hadImportError) {
+          setIsProjectorReady(false);
+          sendToProjector("refresh-projector", {});
+        }
+        return;
+      }
+
       const context = require.context("../projector/modules", false, /\.js$/);
       const moduleKeys = context.keys();
 
@@ -973,6 +1048,8 @@ const Dashboard = () => {
       const validModules = modules.filter(Boolean);
 
       setPredefinedModules(validModules);
+      setWorkspaceModuleFiles([]);
+      setWorkspaceModuleLoadFailures([]);
 
       setIsProjectorReady(false);
       sendToProjector("refresh-projector", {});
@@ -980,15 +1057,28 @@ const Dashboard = () => {
       console.error("❌ [Dashboard] Error loading modules:", error);
       alert("Failed to load modules from ../projector/modules folder.");
     }
-  }, [sendToProjector]);
+  }, [sendToProjector, workspacePath]);
 
   useEffect(() => {
     loadModules();
   }, [loadModules]);
 
+  useIPCListener(
+    "workspace:modulesChanged",
+    () => {
+      if (workspacePath) {
+        window.location.reload();
+        return;
+      }
+      loadModules();
+    },
+    [loadModules]
+  );
+
   // Accept HMR updates for modules context so dashboard doesn't full reload
   useEffect(() => {
     try {
+      if (workspacePath) return;
       // Create a stable context reference purely for HMR subscription
       const hmrContext = require.context(
         "../projector/modules",
@@ -1024,7 +1114,7 @@ const Dashboard = () => {
         e.message
       );
     }
-  }, [loadModules]);
+  }, [loadModules, workspacePath]);
 
   const isInitialMount = useRef(true);
   const userDataLoadedSuccessfully = useRef(false);
@@ -1041,12 +1131,17 @@ const Dashboard = () => {
       const recordings = await loadRecordingData();
 
       const appState = await loadAppState();
-
       let activeTrackIdToUse = appState.activeTrackId;
       let activeSetIdToUse = appState.activeSetId;
       let sequencerMutedToUse = appState.sequencerMuted;
-
+      const workspacePathToUse =
+        data?.config?.workspacePath || appState.workspacePath || null;
+      workspacePathRef.current = workspacePathToUse;
       setIsSequencerMuted(Boolean(sequencerMutedToUse));
+      setWorkspacePath(workspacePathToUse);
+      if (!workspacePathToUse) {
+        setIsWorkspaceModalOpen(true);
+      }
 
       if (activeSetIdToUse) {
         setActiveSetId(activeSetIdToUse);
@@ -1082,6 +1177,21 @@ const Dashboard = () => {
     initializeUserData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleSelectWorkspace = useCallback(async () => {
+    const result = await ipcInvoke("workspace:select");
+    if (!result || result.cancelled || !result.workspacePath) return;
+    const nextPath = result.workspacePath;
+    workspacePathRef.current = nextPath;
+    setWorkspacePath(nextPath);
+    setIsWorkspaceModalOpen(false);
+    updateUserData(setUserData, (draft) => {
+      if (!draft.config) draft.config = {};
+      draft.config.workspacePath = nextPath;
+    });
+    const currentState = await loadAppState();
+    await saveAppState({ ...currentState, workspacePath: nextPath });
+  }, [ipcInvoke]);
 
   const openAddModuleModal = useCallback((trackIndex) => {
     setSelectedTrackForModuleMenu(trackIndex);
@@ -1478,6 +1588,11 @@ const Dashboard = () => {
                         isSequencerPlaying={isSequencerPlaying}
                         sequencerCurrentStep={sequencerCurrentStep}
                         handleSequencerToggle={handleSequencerToggle}
+                        workspacePath={workspacePath}
+                        workspaceModuleFiles={workspaceModuleFiles}
+                        workspaceModuleLoadFailures={
+                          workspaceModuleLoadFailures
+                        }
                       />
                     );
                   })}
@@ -1568,6 +1683,8 @@ const Dashboard = () => {
         }}
         config={userData.config}
         updateConfig={updateConfig}
+        workspacePath={workspacePath}
+        onSelectWorkspace={handleSelectWorkspace}
       />
       <InputMappingsModal
         isOpen={isInputMappingsModalOpen}
@@ -1605,11 +1722,13 @@ const Dashboard = () => {
         templateType={editingTemplateType}
         onModuleSaved={null}
         predefinedModules={predefinedModules}
+        workspacePath={workspacePath}
       />
       <NewModuleDialog
         isOpen={isNewModuleDialogOpen}
         onClose={() => setIsNewModuleDialogOpen(false)}
         onCreateModule={handleCreateModule}
+        workspacePath={workspacePath}
       />
       <DebugOverlayModal
         isOpen={isDebugOverlayOpen}
@@ -1622,6 +1741,9 @@ const Dashboard = () => {
         predefinedModules={predefinedModules}
         onEditChannel={handleEditChannel}
         onDeleteChannel={handleDeleteChannel}
+        workspacePath={workspacePath}
+        workspaceModuleFiles={workspaceModuleFiles}
+        workspaceModuleLoadFailures={workspaceModuleLoadFailures}
       />
       <EditChannelModal
         isOpen={editChannelModalState.isOpen}
@@ -1644,6 +1766,24 @@ const Dashboard = () => {
         onConfirm={confirmationModal?.onConfirm}
         type={confirmationModal?.type || "confirm"}
       />
+
+      <Modal isOpen={isWorkspaceModalOpen} onClose={() => {}}>
+        <ModalHeader title="MODULES WORKSPACE" onClose={() => {}} />
+        <div className="flex flex-col gap-4">
+          <div className="text-neutral-300/70">
+            Choose a folder to store your modules. You can edit files in that
+            folder and nw_wrld will reload them automatically.
+          </div>
+          {workspacePath ? (
+            <div className="text-neutral-300/50">{workspacePath}</div>
+          ) : null}
+        </div>
+        <ModalFooter>
+          <div className="flex justify-end gap-3">
+            <Button onClick={handleSelectWorkspace}>CHOOSE FOLDER</Button>
+          </div>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 };

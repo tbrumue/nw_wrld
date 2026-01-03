@@ -225,6 +225,7 @@ export const ModuleEditorModal = ({
   templateType = null,
   onModuleSaved,
   predefinedModules = [],
+  workspacePath = null,
 }) => {
   const [code, setCode] = useState("");
   const [error, setError] = useState(null);
@@ -240,14 +241,20 @@ export const ModuleEditorModal = ({
 
   const filePath = useMemo(() => {
     if (!moduleName) return null;
+    if (workspacePath) {
+      return `${workspacePath}/modules/${moduleName}.js`;
+    }
     return `/src/projector/modules/${moduleName}.js`;
-  }, [moduleName]);
+  }, [moduleName, workspacePath]);
 
   const absoluteFilePath = useMemo(() => {
     if (!moduleName) return null;
+    if (workspacePath) {
+      return path.join(workspacePath, "modules", `${moduleName}.js`);
+    }
     const srcDir = path.join(__dirname, "..", "..");
     return path.join(srcDir, "projector", "modules", `${moduleName}.js`);
-  }, [moduleName]);
+  }, [moduleName, workspacePath]);
 
   const handleOpenInFileExplorer = useCallback(() => {
     if (absoluteFilePath) {
@@ -298,19 +305,171 @@ export const ModuleEditorModal = ({
     setIsLoading(true);
 
     if (templateType && moduleName) {
-      const template = TEMPLATES[templateType](moduleName);
+      const WORKSPACE_TEMPLATES = {
+        basic: (n) =>
+          [
+            "const { ModuleBase } = globalThis.nwWrldSdk || {};",
+            "",
+            `class ${n} extends ModuleBase {`,
+            `  static name = "${n}";`,
+            '  static category = "Custom";',
+            "",
+            "  static methods = [",
+            "    ...((ModuleBase && ModuleBase.methods) || []),",
+            "    {",
+            '      name: "exampleMethod",',
+            "      executeOnLoad: false,",
+            "      options: [",
+            '        { name: "param1", defaultVal: 100, type: "number" },',
+            "      ],",
+            "    },",
+            "  ];",
+            "",
+            "  constructor(container) {",
+            "    super(container);",
+            "    this.init();",
+            "  }",
+            "",
+            "  init() {",
+            "    const html = `",
+            '      <div style="',
+            "        position: absolute;",
+            "        top: 50%;",
+            "        left: 50%;",
+            "        transform: translate(-50%, -50%);",
+            "        font-size: 3rem;",
+            "        color: white;",
+            '      ">',
+            `        ${n}`,
+            "      </div>",
+            "    `;",
+            "    if (this.elem) {",
+            '      this.elem.insertAdjacentHTML("beforeend", html);',
+            "    }",
+            "  }",
+            "",
+            "  exampleMethod({ param1 = 100 } = {}) {",
+            "  }",
+            "",
+            "  destroy() {",
+            "    super.destroy();",
+            "  }",
+            "}",
+            "",
+            `export default ${n};`,
+            "",
+          ].join("\n"),
+        threejs: (n) =>
+          [
+            "const { BaseThreeJsModule } = globalThis.nwWrldSdk || {};",
+            "const THREE = globalThis.THREE;",
+            "",
+            `class ${n} extends BaseThreeJsModule {`,
+            `  static name = "${n}";`,
+            '  static category = "3D";',
+            "",
+            "  static methods = [",
+            "    ...((BaseThreeJsModule && BaseThreeJsModule.methods) || []),",
+            "  ];",
+            "",
+            "  constructor(container) {",
+            "    super(container);",
+            "    if (!THREE) return;",
+            "    const geometry = new THREE.BoxGeometry(1, 1, 1);",
+            "    const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });",
+            "    this.cube = new THREE.Mesh(geometry, material);",
+            "    const light = new THREE.DirectionalLight(0xffffff, 2);",
+            "    light.position.set(2, 2, 4);",
+            "    this.scene.add(light);",
+            "    this.setModel(this.cube);",
+            "    this.setCustomAnimate(() => {",
+            "      if (!this.cube) return;",
+            "      this.cube.rotation.x += 0.01;",
+            "      this.cube.rotation.y += 0.01;",
+            "    });",
+            "  }",
+            "",
+            "  destroy() {",
+            "    this.cube = null;",
+            "    super.destroy();",
+            "  }",
+            "}",
+            "",
+            `export default ${n};`,
+            "",
+          ].join("\n"),
+        p5js: (n) =>
+          [
+            "const { ModuleBase } = globalThis.nwWrldSdk || {};",
+            "const p5 = globalThis.p5;",
+            "",
+            `class ${n} extends ModuleBase {`,
+            `  static name = "${n}";`,
+            '  static category = "2D";',
+            "",
+            "  static methods = [",
+            "    ...((ModuleBase && ModuleBase.methods) || []),",
+            "  ];",
+            "",
+            "  constructor(container) {",
+            "    super(container);",
+            "    this.p5Instance = null;",
+            "    this.param1Value = 255;",
+            "    this.init();",
+            "  }",
+            "",
+            "  init() {",
+            "    if (!p5) return;",
+            "    const sketch = (p) => {",
+            "      p.setup = () => {",
+            "        p.createCanvas(this.elem.offsetWidth, this.elem.offsetHeight);",
+            "        p.background(0);",
+            "      };",
+            "      p.draw = () => {",
+            "        p.background(0, 10);",
+            "        p.fill(this.param1Value);",
+            "        p.noStroke();",
+            "        p.ellipse(p.mouseX, p.mouseY, 50, 50);",
+            "      };",
+            "    };",
+            "    this.p5Instance = new p5(sketch, this.elem);",
+            "  }",
+            "",
+            "  destroy() {",
+            "    if (this.p5Instance) {",
+            "      this.p5Instance.remove();",
+            "      this.p5Instance = null;",
+            "    }",
+            "    super.destroy();",
+            "  }",
+            "}",
+            "",
+            `export default ${n};`,
+            "",
+          ].join("\n"),
+      };
+
+      const template = (workspacePath ? WORKSPACE_TEMPLATES : TEMPLATES)[
+        templateType
+      ](moduleName);
       setCode(template);
       setIsLoading(false);
+      if (absoluteFilePath) {
+        try {
+          const dir = path.dirname(absoluteFilePath);
+          if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+          }
+          if (!fs.existsSync(absoluteFilePath)) {
+            fs.writeFileSync(absoluteFilePath, template, "utf-8");
+          }
+        } catch (err) {
+          setError(`Failed to create module: ${err.message}`);
+        }
+      }
     } else if (moduleName) {
       try {
-        const srcDir = path.join(__dirname, "..", "..");
-        const filePath = path.join(
-          srcDir,
-          "projector",
-          "modules",
-          `${moduleName}.js`
-        );
-        const fileContent = fs.readFileSync(filePath, "utf-8");
+        const fileContent = fs.readFileSync(absoluteFilePath, "utf-8");
         setCode(fileContent);
         setIsLoading(false);
       } catch (err) {
@@ -318,7 +477,7 @@ export const ModuleEditorModal = ({
         setIsLoading(false);
       }
     }
-  }, [isOpen, moduleName, templateType]);
+  }, [isOpen, moduleName, templateType, absoluteFilePath, workspacePath]);
 
   useEffect(() => {
     if (isOpen && moduleData && !isLoading) {
