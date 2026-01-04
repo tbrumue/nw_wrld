@@ -11,7 +11,9 @@
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').rmSync('release',{recursive:true,force:true});\"",
     "build:renderer": "npm run clean && webpack --mode production",
     "pack:mac": "npm run build:renderer && electron-builder --mac --dir",
-    "dist:mac": "npm run build:renderer && electron-builder --mac"
+    "dist:mac": "npm run build:renderer && electron-builder --mac",
+    "pack:win": "npm run build:renderer && electron-builder --win --dir",
+    "dist:win": "npm run build:renderer && electron-builder --win"
   },
   "engines": {
     "node": "^18.0.0"
@@ -89,7 +91,8 @@
     "asar": true,
     "npmRebuild": false,
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "index.js",
@@ -103,6 +106,12 @@
         "dmg"
       ],
       "icon": "build/logo.icns"
+    },
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "build/logo.ico"
     }
   }
 }

@@ -24,11 +24,12 @@ This guide covers installation, setup, and basic usage of nw_wrld.
 
 ### Path 1: Install the App (Recommended for Most Users)
 
-**Requirements:** macOS (Windows/Linux support coming soon)
+**Requirements:** macOS or Windows
 
-1. Download the latest DMG from [Releases](https://github.com/aagentah/nw_wrld/releases)
-2. Open the DMG and drag nw_wrld to Applications
-3. Launch nw_wrld from Applications
+1. Download the latest release for your OS from [Releases](https://github.com/aagentah/nw_wrld/releases)
+2. Install / run it:
+   - **macOS**: Open the DMG and drag nw_wrld to Applications, then launch nw_wrld from Applications
+   - **Windows**: Download the portable `.exe` and run it (Windows may show a SmartScreen prompt for unsigned apps)
 
 **No Node.js, terminal, or coding experience required to get started.**
 

@@ -428,15 +428,23 @@ npm run dist:mac
 
 This creates a distributable DMG in the `release/` directory.
 
+### Build Windows (portable .exe)
+
+```bash
+npm run dist:win
+```
+
+This creates a portable Windows `.exe` in the `release/` directory.
+
 ### Automated Releases
 
-The project uses GitHub Actions to automatically build and release DMGs:
+The project uses GitHub Actions to automatically build and attach release artifacts (macOS DMG + Windows portable `.exe`):
 
 1. Tag a new version: `git tag v1.0.0`
 2. Push the tag: `git push origin v1.0.0`
-3. GitHub Actions builds the DMG and creates a release automatically
+3. GitHub Actions builds the artifacts and creates a release automatically
 
-See `.github/workflows/release-mac.yml` for the CI configuration.
+See `.github/workflows/release.yml` for the CI configuration.
 
 ---
 
