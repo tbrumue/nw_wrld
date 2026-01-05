@@ -1,8 +1,4 @@
 const path = require("path");
-const CopyWebpackPlugin = require("copy-webpack-plugin");
-const MonacoWebpackPlugin = require("monaco-editor-webpack-plugin");
-
-const monacoRoot = path.dirname(require.resolve("monaco-editor/package.json"));
 
 module.exports = (env, argv) => {
   const mode = argv?.mode || "development";
@@ -61,20 +57,7 @@ module.exports = (env, argv) => {
         },
       ],
     },
-    plugins: [
-      new MonacoWebpackPlugin({
-        languages: ["javascript"],
-        filename: "vs/[name].worker.js",
-      }),
-      new CopyWebpackPlugin({
-        patterns: [
-          {
-            from: path.join(monacoRoot, "min", "vs"),
-            to: path.resolve(__dirname, "dist", "vs"),
-          },
-        ],
-      }),
-    ],
+    plugins: [],
     devServer: {
       static: path.join(__dirname, "dist"),
       compress: true,

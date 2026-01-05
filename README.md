@@ -439,6 +439,23 @@ npm run dist:mac
 
 This creates a distributable DMG in the `release/` directory.
 
+### Build macOS DMGs (Split by Architecture - Recommended)
+
+Universal mac builds bundle both Intel (x64) and Apple Silicon (arm64) into a single app, which significantly increases the download size.
+
+To build two smaller DMGs (one per architecture):
+
+```bash
+npm run dist:mac:split
+```
+
+Or build a specific architecture:
+
+```bash
+npm run dist:mac:arm64
+npm run dist:mac:x64
+```
+
 ### Build Windows (portable .exe)
 
 ```bash
@@ -449,7 +466,7 @@ This creates a portable Windows `.exe` in the `release/` directory.
 
 ### Automated Releases
 
-The project uses GitHub Actions to automatically build and attach release artifacts (macOS DMG + Windows portable `.exe`):
+The project uses GitHub Actions to automatically build and attach release artifacts (macOS DMGs for arm64 + x64, plus Windows portable `.exe`):
 
 1. Tag a new version: `git tag v1.0.0`
 2. Push the tag: `git push origin v1.0.0`

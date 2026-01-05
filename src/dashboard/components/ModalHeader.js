@@ -1,7 +1,12 @@
 import React from "react";
 import { Button } from "./Button";
 
-export const ModalHeader = ({ title, onClose, isBottomAligned }) => {
+export const ModalHeader = ({
+  title,
+  onClose,
+  isBottomAligned,
+  showClose = true,
+}) => {
   return (
     <div className="mb-4 pb-4 border-b border-neutral-800 bg-[#101010]">
       <div
@@ -12,9 +17,11 @@ export const ModalHeader = ({ title, onClose, isBottomAligned }) => {
         <span className="uppercase text-neutral-300 relative inline-block">
           {title}
         </span>
-        <Button onClick={onClose} type="secondary">
-          CLOSE
-        </Button>
+        {showClose ? (
+          <Button onClick={onClose} type="secondary">
+            CLOSE
+          </Button>
+        ) : null}
       </div>
     </div>
   );

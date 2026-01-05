@@ -1,12 +1,5 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  useCallback,
-} from "react";
-import Editor, { loader } from "@monaco-editor/react";
-import { FaTimes, FaRedo, FaPlay } from "react-icons/fa";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { FaTimes, FaRedo } from "react-icons/fa";
 import { Button } from "./Button.js";
 import {
   TextInput,
@@ -227,7 +220,6 @@ export const ModuleEditorModal = ({
   const [code, setCode] = useState("");
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const editorRef = useRef(null);
 
   const [methodOptions, setMethodOptions] = useState({});
 
@@ -284,16 +276,6 @@ export const ModuleEditorModal = ({
       }),
     }));
   }, [customMethods, methodOptions]);
-
-  useEffect(() => {
-    try {
-      const vsUrl = new URL(
-        "../../../dist/vs",
-        window.location.href
-      ).toString();
-      loader.config({ paths: { vs: vsUrl } });
-    } catch (e) {}
-  }, []);
 
   useEffect(() => {
     if (!isOpen) {
@@ -602,223 +584,6 @@ export const ModuleEditorModal = ({
     onClose();
   };
 
-  const handleEditorDidMount = (editor, monaco) => {
-    editorRef.current = editor;
-
-    monaco.editor.defineTheme("custom-dark", {
-      base: "vs-dark",
-      inherit: false,
-      rules: [
-        { token: "", foreground: "d4d4d8" },
-        { token: "string", foreground: "b85c5c" },
-        { token: "string.escape", foreground: "d4d4d8" },
-        { token: "string.sql", foreground: "b85c5c" },
-        { token: "string.yaml", foreground: "b85c5c" },
-        { token: "keyword", foreground: "b85c5c" },
-        { token: "keyword.control", foreground: "b85c5c" },
-        { token: "keyword.operator", foreground: "737373" },
-        { token: "keyword.other", foreground: "b85c5c" },
-        { token: "comment", foreground: "525252" },
-        { token: "comment.line", foreground: "525252" },
-        { token: "comment.block", foreground: "525252" },
-        { token: "function", foreground: "b85c5c" },
-        { token: "function.call", foreground: "b85c5c" },
-        { token: "variable", foreground: "a3a3a3" },
-        { token: "variable.parameter", foreground: "a3a3a3" },
-        { token: "variable.other", foreground: "a3a3a3" },
-        { token: "variable.property", foreground: "a3a3a3" },
-        { token: "number", foreground: "a3a3a3" },
-        { token: "number.hex", foreground: "a3a3a3" },
-        { token: "number.octal", foreground: "a3a3a3" },
-        { token: "number.binary", foreground: "a3a3a3" },
-        { token: "type", foreground: "b85c5c" },
-        { token: "type.identifier", foreground: "b85c5c" },
-        { token: "class", foreground: "b85c5c" },
-        { token: "class.identifier", foreground: "b85c5c" },
-        { token: "operator", foreground: "737373" },
-        { token: "delimiter", foreground: "737373" },
-        { token: "delimiter.bracket", foreground: "737373" },
-        { token: "delimiter.parenthesis", foreground: "737373" },
-        { token: "delimiter.square", foreground: "737373" },
-        { token: "delimiter.curly", foreground: "737373" },
-        { token: "delimiter.angle", foreground: "737373" },
-        { token: "tag", foreground: "d4d4d8" },
-        { token: "attribute.name", foreground: "a3a3a3" },
-        { token: "attribute.value", foreground: "a3a3a3" },
-        { token: "property", foreground: "a3a3a3" },
-        { token: "property.name", foreground: "a3a3a3" },
-        { token: "constant", foreground: "a3a3a3" },
-        { token: "constant.numeric", foreground: "a3a3a3" },
-        { token: "constant.language", foreground: "d4d4d8" },
-        { token: "constant.character", foreground: "a3a3a3" },
-        { token: "regexp", foreground: "a3a3a3" },
-        { token: "entity", foreground: "d4d4d8" },
-        { token: "entity.name", foreground: "d4d4d8" },
-        { token: "entity.name.function", foreground: "b85c5c" },
-        { token: "entity.name.type", foreground: "b85c5c" },
-        { token: "entity.name.class", foreground: "b85c5c" },
-        { token: "support.function", foreground: "b85c5c" },
-        { token: "support.type", foreground: "b85c5c" },
-        { token: "support.class", foreground: "b85c5c" },
-        { token: "support.constant", foreground: "a3a3a3" },
-        { token: "support.variable", foreground: "a3a3a3" },
-        { token: "invalid", foreground: "737373" },
-        { token: "invalid.illegal", foreground: "737373" },
-        { token: "meta", foreground: "737373" },
-        { token: "meta.brace", foreground: "737373" },
-        { token: "punctuation", foreground: "737373" },
-        { token: "punctuation.definition", foreground: "737373" },
-        { token: "punctuation.section", foreground: "737373" },
-        { token: "text", foreground: "d4d4d8" },
-        { token: "storage", foreground: "d4d4d8" },
-        { token: "storage.type", foreground: "d4d4d8" },
-        { token: "storage.modifier", foreground: "d4d4d8" },
-      ],
-      colors: {
-        "editor.background": "#101010",
-        "editor.foreground": "#d4d4d8",
-        "editorLineNumber.foreground": "#525252",
-        "editor.selectionBackground": "#262626",
-        "editor.lineHighlightBackground": "#1a1a1a",
-        "editorCursor.foreground": "#d4d4d8",
-        "editorWhitespace.foreground": "#333333",
-        "editorIndentGuide.background": "#262626",
-        "editorIndentGuide.activeBackground": "#404040",
-        "editor.selectionHighlightBackground": "#262626",
-        "editor.wordHighlightBackground": "#262626",
-        "editor.wordHighlightStrongBackground": "#262626",
-        "editorBracketMatch.background": "#262626",
-        "editorBracketMatch.border": "#737373",
-        "editorBracketHighlight.foreground1": "#737373",
-        "editorBracketHighlight.foreground2": "#737373",
-        "editorBracketHighlight.foreground3": "#737373",
-        "editorBracketHighlight.foreground4": "#737373",
-        "editorBracketHighlight.foreground5": "#737373",
-        "editorBracketHighlight.foreground6": "#737373",
-        "editorBracketPairGuide.activeBackground": "#404040",
-        "editorBracketPairGuide.background": "#262626",
-      },
-    });
-
-    monaco.editor.setTheme("custom-dark");
-
-    editor.focus();
-
-    const writeClipboard = async (text) => {
-      try {
-        await navigator.clipboard.writeText(String(text ?? ""));
-      } catch {}
-    };
-    const readClipboard = async () => {
-      try {
-        return await navigator.clipboard.readText();
-      } catch {
-        return "";
-      }
-    };
-
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyC, () => {
-      const selection = editor.getSelection();
-      const selectedText = editor.getModel().getValueInRange(selection);
-      if (selectedText) {
-        void writeClipboard(selectedText);
-      }
-    });
-
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyX, () => {
-      const selection = editor.getSelection();
-      const selectedText = editor.getModel().getValueInRange(selection);
-      if (selectedText) {
-        void writeClipboard(selectedText);
-        editor.executeEdits("", [
-          {
-            range: selection,
-            text: "",
-          },
-        ]);
-      }
-    });
-
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV, () => {
-      const selection = editor.getSelection();
-      readClipboard().then((text) => {
-        if (!text) return;
-        editor.executeEdits("", [{ range: selection, text }]);
-        const newPosition = {
-          lineNumber: selection.startLineNumber,
-          column: selection.startColumn + text.length,
-        };
-        editor.setPosition(newPosition);
-        editor.focus();
-      });
-    });
-
-    editor.addAction({
-      id: "editor.action.clipboardCopyAction",
-      label: "Copy",
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyC],
-      contextMenuGroupId: "9_cutcopypaste",
-      contextMenuOrder: 2,
-      run: (ed) => {
-        const selection = ed.getSelection();
-        const selectedText = ed.getModel().getValueInRange(selection);
-        if (selectedText) {
-          void writeClipboard(selectedText);
-        }
-      },
-    });
-
-    editor.addAction({
-      id: "editor.action.clipboardCutAction",
-      label: "Cut",
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyX],
-      contextMenuGroupId: "9_cutcopypaste",
-      contextMenuOrder: 1,
-      run: (ed) => {
-        const selection = ed.getSelection();
-        const selectedText = ed.getModel().getValueInRange(selection);
-        if (selectedText) {
-          void writeClipboard(selectedText);
-          ed.executeEdits("", [
-            {
-              range: selection,
-              text: "",
-            },
-          ]);
-        }
-      },
-    });
-
-    editor.addAction({
-      id: "editor.action.clipboardPasteAction",
-      label: "Paste",
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV],
-      contextMenuGroupId: "9_cutcopypaste",
-      contextMenuOrder: 3,
-      run: (ed) => {
-        const selection = ed.getSelection();
-        return readClipboard().then((text) => {
-          if (!text) return null;
-          ed.executeEdits("", [{ range: selection, text }]);
-          return null;
-        });
-      },
-    });
-
-    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-      noSemanticValidation: false,
-      noSyntaxValidation: false,
-    });
-
-    monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
-      target: monaco.languages.typescript.ScriptTarget.ES2020,
-      allowNonTsExtensions: true,
-      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-      module: monaco.languages.typescript.ModuleKind.ES2015,
-      allowJs: true,
-    });
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -868,41 +633,11 @@ export const ModuleEditorModal = ({
             </div>
           </div>
         )}
-        <Editor
-          height="100%"
-          language="javascript"
-          theme="custom-dark"
-          value={code}
-          onChange={setCode}
-          onMount={handleEditorDidMount}
-          loading={
-            <div className="w-full h-full bg-[#101010] flex items-center justify-center">
-              <div className="text-neutral-400 font-mono text-[11px]">
-                Initializing editor...
-              </div>
-            </div>
-          }
-          options={{
-            readOnly: true,
-            minimap: { enabled: false },
-            fontSize: 11,
-            lineNumbers: "off",
-            rulers: null,
-            wordWrap: "off",
-            automaticLayout: true,
-            scrollBeyondLastLine: false,
-            tabSize: 2,
-            insertSpaces: true,
-            formatOnPaste: true,
-            formatOnType: true,
-            bracketPairColorization: { enabled: false },
-            guides: {
-              bracketPairs: false,
-              bracketPairsHorizontal: false,
-              highlightActiveIndentation: false,
-            },
-          }}
-        />
+        <div className="h-full overflow-auto px-6 pb-6">
+          <pre className="code-viewer text-neutral-300 font-mono text-[11px] leading-5 whitespace-pre">
+            <code>{code}</code>
+          </pre>
+        </div>
       </div>
 
       {/* Footer Panel */}

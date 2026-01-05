@@ -1,6 +1,71 @@
 name: Release
 
 on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  mac:
+    name: macOS (${{ matrix.arch }})
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+      - run: npm ci
+      - run: npm run dist:mac:${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nw_wrld-mac-${{ matrix.arch }}
+          path: |
+            release/**/*.dmg
+
+  win:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+      - run: npm ci
+      - run: npm run dist:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nw_wrld-win
+          path: |
+            release/**/*.exe
+
+  github_release:
+    name: Publish GitHub Release
+    needs: [mac, win]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: List artifacts
+        run: ls -R artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.exe
+name: Release
+
+on:
   push:
     tags:
       - "v*"

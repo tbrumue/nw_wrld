@@ -1855,6 +1855,7 @@ const Dashboard = () => {
               : "OPEN PROJECT"
           }
           onClose={() => {}}
+          showClose={false}
         />
         <div className="flex flex-col gap-4">
           <div className="text-neutral-300/70">
