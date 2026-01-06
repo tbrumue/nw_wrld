@@ -731,6 +731,41 @@ ipcMain.on("sandbox:toMain", async (event, payload) => {
       result,
     });
   }
+
+  if (data.__nwWrldSandbox && data.type === "sdk:listAssets") {
+    if (!activeSandboxToken || token !== activeSandboxToken) {
+      return;
+    }
+    const entry = sandboxTokenToProjectDir.get(token) || null;
+    const projectDir = entry?.projectDir || null;
+    const relDir = String(data.props?.relDir || "");
+    let result = { ok: false, entries: [] };
+    if (projectDir && isExistingDirectory(projectDir)) {
+      const assetsDir = path.join(projectDir, "assets");
+      const fullPath = resolveWithinDir(assetsDir, relDir);
+      if (fullPath) {
+        try {
+          const stat = await fs.promises.stat(fullPath);
+          if (stat && stat.isDirectory()) {
+            const dirents = await fs.promises.readdir(fullPath, {
+              withFileTypes: true,
+            });
+            const entries = dirents
+              .filter((d) => d && d.isFile && d.isFile())
+              .map((d) => String(d.name || ""))
+              .filter(Boolean);
+            result = { ok: true, entries };
+          }
+        } catch {}
+      }
+    }
+    sendToSandbox({
+      __nwWrldSandboxResult: true,
+      token,
+      requestId,
+      result,
+    });
+  }
 });
 
 ipcMain.handle("bridge:workspace:listModuleSummaries", async (event) => {
