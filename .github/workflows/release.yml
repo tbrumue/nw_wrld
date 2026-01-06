@@ -7,9 +7,10 @@ on:
         description: "Tag to build and publish (e.g. v0.2.0-beta)"
         required: true
         type: string
-  push:
-    tags:
-      - "v*"
+  # Temporarily disabled: do not auto-build/publish binaries on tag pushes.
+  # push:
+  #   tags:
+  #     - "v*"
 
 permissions:
   contents: write
