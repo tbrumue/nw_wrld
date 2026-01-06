@@ -20,6 +20,19 @@ jobs:
           node-version: "20.19.5"
           cache: "npm"
 
+      - name: Debug env + lockfile
+        run: |
+          node -v
+          npm -v
+          node -e "const fs=require('fs');const crypto=require('crypto');const b=fs.readFileSync('package-lock.json');console.log('package-lock.json sha256:',crypto.createHash('sha256').update(b).digest('hex'));"
+          node -e "const fs=require('fs');const crypto=require('crypto');const b=fs.readFileSync('package.json');console.log('package.json sha256:',crypto.createHash('sha256').update(b).digest('hex'));"
+          node -e "const lock=require('./package-lock.json'); console.log('lockfileVersion:', lock.lockfileVersion);"
+
+      - name: Ensure npm version
+        run: |
+          npm i -g npm@10.8.2
+          npm -v
+
       - name: Install dependencies
         run: npm ci
 
