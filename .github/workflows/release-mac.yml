@@ -27,6 +27,7 @@ jobs:
           node -e "const fs=require('fs');const crypto=require('crypto');const b=fs.readFileSync('package-lock.json');console.log('package-lock.json sha256:',crypto.createHash('sha256').update(b).digest('hex'));"
           node -e "const fs=require('fs');const crypto=require('crypto');const b=fs.readFileSync('package.json');console.log('package.json sha256:',crypto.createHash('sha256').update(b).digest('hex'));"
           node -e "const lock=require('./package-lock.json'); console.log('lockfileVersion:', lock.lockfileVersion);"
+          node -e "const lock=require('./package-lock.json'); const p=lock.packages||{}; const root=p['node_modules/picomatch']?.version; const nested=p['node_modules/tinyglobby/node_modules/picomatch']?.version; const tiny=p['node_modules/tinyglobby']?.dependencies?.picomatch; console.log('picomatch root:',root); console.log('tinyglobby depends picomatch:',tiny); console.log('picomatch under tinyglobby:',nested);"
 
       - name: Ensure npm version
         run: |
