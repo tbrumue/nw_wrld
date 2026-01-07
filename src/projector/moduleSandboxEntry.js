@@ -49,6 +49,7 @@ const WORKSPACE_MODULE_ALLOWED_IMPORTS = new Set([
   "assetUrl",
   "readText",
   "loadJson",
+  "listAssets",
   "THREE",
   "p5",
   "d3",
@@ -102,7 +103,8 @@ const buildWorkspaceImportPreamble = (moduleId, importsList) => {
       t === "BaseThreeJsModule" ||
       t === "assetUrl" ||
       t === "readText" ||
-      t === "loadJson"
+      t === "loadJson" ||
+      t === "listAssets"
   );
   const globalImports = requested.filter((t) => !sdkImports.includes(t));
 
@@ -228,6 +230,19 @@ const createSdk = () => {
   sdk.assetUrl = assetUrl;
   sdk.readText = readText;
   sdk.loadJson = loadJson;
+  sdk.listAssets = async (relDir) => {
+    const safe = safeAssetRelPath(relDir);
+    if (!safe) return [];
+    try {
+      const res = await rpcRequest("sdk:listAssets", { relDir: safe });
+      const entries = Array.isArray(res?.entries) ? res.entries : [];
+      return entries.filter(
+        (e) => typeof e === "string" && e.trim().length > 0
+      );
+    } catch {
+      return [];
+    }
+  };
 
   return sdk;
 };
