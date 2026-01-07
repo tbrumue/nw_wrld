@@ -40,6 +40,7 @@ const SortableItem = React.memo(
     addMissingOption,
     moduleMethods,
     moduleName,
+    userColors,
     onShowMethodCode,
   }) => {
     const toggleRandomization = useCallback(
@@ -61,6 +62,32 @@ const SortableItem = React.memo(
             : [];
           if (!values.length) return;
           changeOption(method.name, optionName, [...values], "randomValues");
+          return;
+        }
+
+        if (type === "color") {
+          if (
+            option.randomValues !== undefined &&
+            option.randomizeFromUserColors
+          ) {
+            changeOption(method.name, optionName, undefined, "randomValues");
+            changeOption(
+              method.name,
+              optionName,
+              undefined,
+              "randomizeFromUserColors"
+            );
+            return;
+          }
+          const values = Array.isArray(userColors) ? userColors : [];
+          if (!values.length) return;
+          changeOption(method.name, optionName, [...values], "randomValues");
+          changeOption(
+            method.name,
+            optionName,
+            true,
+            "randomizeFromUserColors"
+          );
           return;
         }
 
@@ -88,7 +115,7 @@ const SortableItem = React.memo(
         }
         changeOption(method.name, optionName, [min, max], "randomRange");
       },
-      [method.name, method.options, changeOption]
+      [method.name, method.options, changeOption, userColors]
     );
 
     const handleRandomChange = useCallback(
@@ -112,6 +139,31 @@ const SortableItem = React.memo(
           return;
         }
 
+        if (type === "color") {
+          const values = Array.isArray(userColors) ? userColors : [];
+          if (!values.length) return;
+          if (!Array.isArray(indexOrValues)) return;
+          const selected = values.filter((v) => indexOrValues.includes(v));
+          if (selected.length === 0) {
+            changeOption(method.name, optionName, undefined, "randomValues");
+            changeOption(
+              method.name,
+              optionName,
+              undefined,
+              "randomizeFromUserColors"
+            );
+          } else {
+            changeOption(method.name, optionName, selected, "randomValues");
+            changeOption(
+              method.name,
+              optionName,
+              true,
+              "randomizeFromUserColors"
+            );
+          }
+          return;
+        }
+
         if (!option.randomRange) return;
 
         let newRandomRange;
@@ -124,7 +176,7 @@ const SortableItem = React.memo(
         }
         changeOption(method.name, optionName, newRandomRange, "randomRange");
       },
-      [method.options, method.name, changeOption]
+      [method.options, method.name, changeOption, userColors]
     );
 
     const handleOptionChange = useCallback(
@@ -144,6 +196,7 @@ const SortableItem = React.memo(
                 mode="dashboard"
                 moduleMethods={moduleMethods}
                 moduleName={moduleName}
+                userColors={userColors}
                 dragHandleProps={dragHandleProps}
                 onRemove={handleRemoveMethod}
                 onShowCode={onShowMethodCode}
@@ -188,6 +241,10 @@ export const MethodConfiguratorModal = ({
   const sendToProjector = useIPCSend("dashboard-to-projector");
   const { moduleBase, threeBase } = useMemo(() => getBaseMethodNames(), []);
   const lastNormalizedKeyRef = useRef(null);
+  const userColors = useMemo(() => {
+    const list = userData?.config?.userColors;
+    return Array.isArray(list) ? list.filter(Boolean) : [];
+  }, [userData?.config?.userColors]);
 
   const module = useMemo(() => {
     if (!selectedChannel) return null;
@@ -769,6 +826,7 @@ export const MethodConfiguratorModal = ({
                             addMissingOption={addMissingOption}
                             moduleMethods={module ? module.methods : []}
                             moduleName={module ? module.name : null}
+                            userColors={userColors}
                             onShowMethodCode={(methodName) => {
                               setSelectedMethodForCode({
                                 moduleName: module?.id || module?.name || null,

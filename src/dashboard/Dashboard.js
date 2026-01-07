@@ -510,7 +510,9 @@ const Dashboard = () => {
     if (!moduleId) return;
 
     if (payload.ok) {
-      const incomingMethods = Array.isArray(payload.methods) ? payload.methods : [];
+      const incomingMethods = Array.isArray(payload.methods)
+        ? payload.methods
+        : [];
       setPredefinedModules((prev) =>
         (prev || []).map((m) =>
           m && m.id === moduleId
@@ -532,7 +534,9 @@ const Dashboard = () => {
 
       if (executeOnLoad.length) {
         updateActiveSet(setUserData, activeSetId, (activeSet) => {
-          const tracks = Array.isArray(activeSet?.tracks) ? activeSet.tracks : [];
+          const tracks = Array.isArray(activeSet?.tracks)
+            ? activeSet.tracks
+            : [];
           for (const track of tracks) {
             const modules = Array.isArray(track?.modules) ? track.modules : [];
             const modulesData = track?.modulesData || null;
@@ -545,7 +549,9 @@ const Dashboard = () => {
               if (type !== moduleId) continue;
 
               const data = modulesData[instId];
-              const ctor = Array.isArray(data?.constructor) ? data.constructor : null;
+              const ctor = Array.isArray(data?.constructor)
+                ? data.constructor
+                : null;
               if (!ctor) continue;
 
               const names = ctor
@@ -555,7 +561,9 @@ const Dashboard = () => {
               if (names.some((n) => n !== "matrix" && n !== "show")) continue;
 
               const existingSet = new Set(names);
-              const missing = executeOnLoad.filter((m) => !existingSet.has(m.name));
+              const missing = executeOnLoad.filter(
+                (m) => !existingSet.has(m.name)
+              );
               if (!missing.length) continue;
 
               const matrix = ctor.find((m) => m?.name === "matrix") || null;
@@ -751,12 +759,92 @@ const Dashboard = () => {
         }
       }
 
+      const normalizeUserColors = (list) => {
+        const raw = Array.isArray(list) ? list : [];
+        const out = [];
+        const seen = new Set();
+        for (const v of raw) {
+          const s = String(v || "").trim();
+          if (!s) continue;
+          const withHash = s.startsWith("#") ? s : `#${s}`;
+          if (!/^#([0-9A-F]{3}){1,2}$/i.test(withHash)) continue;
+          let hex = withHash.toLowerCase();
+          if (hex.length === 4) {
+            const r = hex[1];
+            const g = hex[2];
+            const b = hex[3];
+            hex = `#${r}${r}${g}${g}${b}${b}`;
+          }
+          if (seen.has(hex)) continue;
+          seen.add(hex);
+          out.push(hex);
+        }
+        return out;
+      };
+
       setUserData(
         produce((draft) => {
           if (!draft.config) {
             draft.config = {};
           }
-          Object.assign(draft.config, updates);
+
+          const hasUserColors = Object.prototype.hasOwnProperty.call(
+            updates || {},
+            "userColors"
+          );
+
+          if (hasUserColors) {
+            const palette = normalizeUserColors(updates.userColors);
+            draft.config.userColors = palette;
+
+            const syncOptions = (options) => {
+              const list = Array.isArray(options) ? options : [];
+              for (const opt of list) {
+                if (!opt || typeof opt !== "object") continue;
+                if (opt.randomizeFromUserColors !== true) continue;
+                if (palette.length > 0) {
+                  opt.randomValues = [...palette];
+                } else {
+                  delete opt.randomValues;
+                  delete opt.randomizeFromUserColors;
+                }
+              }
+            };
+
+            const syncMethodList = (methods) => {
+              const list = Array.isArray(methods) ? methods : [];
+              for (const m of list) {
+                if (!m || typeof m !== "object") continue;
+                syncOptions(m.options);
+              }
+            };
+
+            const sets = Array.isArray(draft.sets) ? draft.sets : [];
+            for (const set of sets) {
+              const tracks = Array.isArray(set?.tracks) ? set.tracks : [];
+              for (const track of tracks) {
+                const modulesData =
+                  track && typeof track === "object" ? track.modulesData : null;
+                if (!modulesData || typeof modulesData !== "object") continue;
+                for (const instanceId of Object.keys(modulesData)) {
+                  const md = modulesData[instanceId];
+                  if (!md || typeof md !== "object") continue;
+                  syncMethodList(md.constructor);
+                  const methodsByChannel =
+                    md.methods && typeof md.methods === "object"
+                      ? md.methods
+                      : null;
+                  if (!methodsByChannel) continue;
+                  for (const channelKey of Object.keys(methodsByChannel)) {
+                    syncMethodList(methodsByChannel[channelKey]);
+                  }
+                }
+              }
+            }
+          }
+
+          const { userColors, ...rest } = updates || {};
+          Object.assign(draft.config, hasUserColors ? rest : updates);
         })
       );
     },

@@ -16,6 +16,8 @@ import {
 import { MatrixGrid } from "../shared/MatrixGrid.jsx";
 import { AssetOptionInput } from "./AssetOptionInput.jsx";
 
+const CUSTOM_VALUE = "__nw_wrld_custom__";
+
 const DraftNumberInput = React.memo(
   ({ value, min, max, fallback, onCommit }) => {
     const [draft, setDraft] = useState(null);
@@ -110,6 +112,7 @@ export const MethodBlock = React.memo(
     mode = "dashboard",
     moduleMethods = [],
     moduleName = null,
+    userColors = [],
     dragHandleProps = null,
     onRemove = null,
     onShowCode = null,
@@ -120,6 +123,7 @@ export const MethodBlock = React.memo(
     onAddMissingOption = null,
   }) => {
     const [isFlashing, setIsFlashing] = useState(false);
+    const [customColorOpenByOption, setCustomColorOpenByOption] = useState({});
 
     const methodOptions = useMemo(
       () => moduleMethods.find((m) => m.name === method.name)?.options || [],
@@ -140,7 +144,11 @@ export const MethodBlock = React.memo(
         Array.isArray(currentOption.randomRange) ||
         (option.type === "select" &&
           Array.isArray(currentOption.randomValues) &&
-          currentOption.randomValues.length > 0);
+          currentOption.randomValues.length > 0) ||
+        (option.type === "color" &&
+          Array.isArray(currentOption.randomValues) &&
+          currentOption.randomValues.length > 0 &&
+          currentOption.randomizeFromUserColors);
       const optionDef = moduleMethods
         .find((m) => m.name === method.name)
         ?.options.find((o) => o.name === option.name);
@@ -197,11 +205,59 @@ export const MethodBlock = React.memo(
             />
           );
         } else if (option.type === "color") {
+          const values = Array.isArray(userColors) ? userColors : [];
+          const isCustomOpen =
+            customColorOpenByOption[option.name] ??
+            !values.includes(currentOption.value);
+          const selectValue =
+            !isCustomOpen && values.includes(currentOption.value)
+              ? currentOption.value
+              : CUSTOM_VALUE;
           return (
-            <ColorInput
-              value={currentOption.value}
-              onChange={(e) => handleOptionChange(option.name, e.target.value)}
-            />
+            <div className="flex items-center gap-2">
+              {values.length > 0 ? (
+                <Select
+                  value={selectValue}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    if (next === CUSTOM_VALUE) {
+                      setCustomColorOpenByOption((prev) => ({
+                        ...prev,
+                        [option.name]: true,
+                      }));
+                      return;
+                    }
+                    setCustomColorOpenByOption((prev) => ({
+                      ...prev,
+                      [option.name]: false,
+                    }));
+                    handleOptionChange(option.name, next);
+                  }}
+                  style={{ width: "120px" }}
+                >
+                  {values.map((hex) => (
+                    <option key={hex} value={hex} className="bg-[#101010]">
+                      {hex}
+                    </option>
+                  ))}
+                  <option value={CUSTOM_VALUE} className="bg-[#101010]">
+                    custom…
+                  </option>
+                </Select>
+              ) : null}
+              {values.length === 0 || isCustomOpen ? (
+                <ColorInput
+                  value={currentOption.value}
+                  onChange={(e) => {
+                    setCustomColorOpenByOption((prev) => ({
+                      ...prev,
+                      [option.name]: true,
+                    }));
+                    handleOptionChange(option.name, e.target.value);
+                  }}
+                />
+              ) : null}
+            </div>
           );
         } else if (option.type === "boolean") {
           return (
@@ -221,6 +277,64 @@ export const MethodBlock = React.memo(
           );
         }
       } else {
+        if (option.type === "color") {
+          const values = Array.isArray(userColors) ? userColors : [];
+          const isCustomOpen =
+            customColorOpenByOption[option.name] ??
+            (!values.includes(currentOption.value) &&
+              !(isRandomized && currentOption.randomizeFromUserColors));
+          const selectValue =
+            !isCustomOpen && values.includes(currentOption.value)
+              ? currentOption.value
+              : CUSTOM_VALUE;
+          return (
+            <div className="flex items-center gap-2">
+              {values.length > 0 ? (
+                <Select
+                  value={selectValue}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    if (next === CUSTOM_VALUE) {
+                      setCustomColorOpenByOption((prev) => ({
+                        ...prev,
+                        [option.name]: true,
+                      }));
+                      return;
+                    }
+                    setCustomColorOpenByOption((prev) => ({
+                      ...prev,
+                      [option.name]: false,
+                    }));
+                    handleOptionChange(option.name, next);
+                  }}
+                  style={{ width: "120px" }}
+                >
+                  {values.map((hex) => (
+                    <option key={hex} value={hex} className="bg-[#101010]">
+                      {hex}
+                    </option>
+                  ))}
+                  <option value={CUSTOM_VALUE} className="bg-[#101010]">
+                    custom…
+                  </option>
+                </Select>
+              ) : null}
+              {values.length === 0 || isCustomOpen ? (
+                <ColorInput
+                  value={currentOption.value}
+                  onChange={(e) => {
+                    setCustomColorOpenByOption((prev) => ({
+                      ...prev,
+                      [option.name]: true,
+                    }));
+                    handleOptionChange(option.name, e.target.value);
+                  }}
+                />
+              ) : null}
+            </div>
+          );
+        }
+
         if (isRandomized) {
           if (option.type === "select") {
             const values = Array.isArray(option.values) ? option.values : [];
@@ -589,11 +703,19 @@ export const MethodBlock = React.memo(
                 Array.isArray(currentOption.randomRange) ||
                 (option.type === "select" &&
                   Array.isArray(currentOption.randomValues) &&
-                  currentOption.randomValues.length > 0);
+                  currentOption.randomValues.length > 0) ||
+                (option.type === "color" &&
+                  Array.isArray(currentOption.randomValues) &&
+                  currentOption.randomValues.length > 0 &&
+                  currentOption.randomizeFromUserColors);
               const showDice =
                 mode === "dashboard" &&
                 onToggleRandom &&
-                (allowRandomization || option.type === "select");
+                (allowRandomization ||
+                  option.type === "select" ||
+                  (option.type === "color" &&
+                    Array.isArray(userColors) &&
+                    userColors.length > 0));
 
               return (
                 <div

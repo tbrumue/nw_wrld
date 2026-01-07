@@ -2,9 +2,115 @@ import React from "react";
 import { Modal } from "../shared/Modal.jsx";
 import { ModalHeader } from "../components/ModalHeader.js";
 import { Button } from "../components/Button.js";
-import { Select, NumberInput, RadioButton } from "../components/FormInputs.js";
+import {
+  Select,
+  NumberInput,
+  RadioButton,
+  ColorInput,
+  TextInput,
+} from "../components/FormInputs.js";
 import { HelpIcon } from "../components/HelpIcon.js";
 import { HELP_TEXT } from "../../shared/helpText.js";
+
+const isValidHexColor = (value) => /^#([0-9A-F]{3}){1,2}$/i.test(value);
+
+const normalizeHexColor = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const withHash = raw.startsWith("#") ? raw : `#${raw}`;
+  if (!isValidHexColor(withHash)) return null;
+  const hex = withHash.toLowerCase();
+  if (hex.length === 4) {
+    const r = hex[1];
+    const g = hex[2];
+    const b = hex[3];
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+  return hex;
+};
+
+const UserColors = ({ config, updateConfig }) => {
+  const userColors = Array.isArray(config?.userColors) ? config.userColors : [];
+  const [draft, setDraft] = React.useState(
+    userColors[0] && isValidHexColor(userColors[0]) ? userColors[0] : "#ffffff"
+  );
+  const [draftText, setDraftText] = React.useState(String(draft));
+
+  React.useEffect(() => {
+    setDraftText(String(draft));
+  }, [draft]);
+
+  const addColor = React.useCallback(() => {
+    const normalized = normalizeHexColor(draftText);
+    if (!normalized) return;
+    const next = Array.from(new Set([...userColors, normalized]));
+    updateConfig({ userColors: next });
+  }, [draftText, updateConfig, userColors]);
+
+  const removeColor = React.useCallback(
+    (hex) => {
+      const safe = String(hex || "").trim();
+      if (!safe) return;
+      const next = userColors.filter((c) => c !== safe);
+      updateConfig({ userColors: next });
+    },
+    [updateConfig, userColors]
+  );
+
+  return (
+    <div className="flex flex-col gap-3 font-mono border-t border-neutral-800 pt-6">
+      <div className="pl-12">
+        <div className="opacity-50 mb-1 text-[11px]">User Colors:</div>
+        <div className="flex items-center gap-2">
+          <ColorInput
+            value={draft}
+            onChange={(e) => {
+              const next = normalizeHexColor(e.target.value) || "#ffffff";
+              setDraft(next);
+            }}
+          />
+          <TextInput
+            value={draftText}
+            onChange={(e) => setDraftText(e.target.value)}
+            className="w-24 py-0.5"
+          />
+          <Button onClick={addColor} className="flex-1">
+            ADD
+          </Button>
+        </div>
+        {userColors.length > 0 ? (
+          <div className="mt-2 flex flex-col gap-1">
+            {userColors.map((hex) => (
+              <div
+                key={hex}
+                className="flex items-center justify-between gap-2 text-[11px] text-neutral-300/80"
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 border border-neutral-600"
+                    style={{ backgroundColor: hex }}
+                  />
+                  <span>{hex}</span>
+                </div>
+                <div
+                  className="px-1 text-red-500/50 cursor-pointer text-[11px]"
+                  onClick={() => removeColor(hex)}
+                  title="Remove"
+                >
+                  [{"\u00D7"}]
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-2 text-[10px] text-neutral-500">
+            No user colors saved.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const ProjectorSettings = ({
   aspectRatio,
@@ -262,6 +368,8 @@ export const SettingsModal = ({
           setBgColor={setBgColor}
           settings={settings}
         />
+
+        <UserColors config={config} updateConfig={updateConfig} />
 
         <div className="flex flex-col gap-2 font-mono border-t border-neutral-800 pt-6">
           <div className="pl-12">
