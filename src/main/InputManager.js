@@ -268,18 +268,33 @@ class InputManager {
   }
 
   async disconnect() {
-    if (!this.currentSource) return;
-
     try {
-      switch (this.currentSource.type) {
-        case "midi":
-          if (this.currentSource.instance) {
-            this.currentSource.instance.removeListener("noteon");
-          }
-          break;
-        case "osc":
-          this.currentSource.instance.close();
-          break;
+      if (this.currentSource) {
+        switch (this.currentSource.type) {
+          case "midi":
+            if (this.currentSource.instance) {
+              try {
+                this.currentSource.instance.removeListener();
+              } catch {
+                this.currentSource.instance.removeListener("noteon");
+              }
+            }
+            if (WebMidi.enabled && typeof WebMidi.disable === "function") {
+              try {
+                await WebMidi.disable();
+              } catch {
+                try {
+                  WebMidi.disable();
+                } catch {}
+              }
+            }
+            break;
+          case "osc":
+            if (this.currentSource.instance) {
+              this.currentSource.instance.close();
+            }
+            break;
+        }
       }
 
       this.broadcastStatus(INPUT_STATUS.DISCONNECTED, "");
