@@ -1323,7 +1323,11 @@ const Projector = {
       return;
     }
 
-    if (ratio.id === "default" || ratio.id === "landscape") {
+    if (
+      ratio.id === "default" ||
+      ratio.id === "landscape" ||
+      ratio.id === "fullscreen"
+    ) {
       document.body.style = ``;
     } else {
       if (ratio.id === "9-16") {

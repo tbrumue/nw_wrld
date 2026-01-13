@@ -4,7 +4,13 @@ const DEFAULT_SETTINGS = {
   aspectRatios: [
     {
       id: "default",
-      label: "Default",
+      label: "Default (Right 1/2)",
+      width: "100vw",
+      height: "100vh",
+    },
+    {
+      id: "fullscreen",
+      label: "Full Screen",
       width: "100vw",
       height: "100vh",
     },
