@@ -7,7 +7,7 @@ import { ModalHeader } from "../components/ModalHeader.js";
 import { ModalFooter } from "../components/ModalFooter.js";
 import { Button } from "../components/Button.js";
 import { RadioButton, Label } from "../components/FormInputs.js";
-import { updateActiveSet } from "../core/utils.js";
+import { updateActiveSet } from "../core/utils";
 import { getActiveSetTracks, getActiveSet } from "../../shared/utils/setUtils.ts";
 import { EditTrackModal } from "./EditTrackModal.jsx";
 import { deleteRecordingsForTracks } from "../../shared/json/recordingUtils.ts";

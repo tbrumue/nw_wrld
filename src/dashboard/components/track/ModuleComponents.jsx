@@ -17,7 +17,7 @@ import {
   flashingConstructorsAtom,
   useFlashingChannels,
 } from "../../core/state.js";
-import { updateActiveSet } from "../../core/utils.js";
+import { updateActiveSet } from "../../core/utils";
 import { TERMINAL_STYLES } from "../../core/constants.ts";
 import { getActiveSetTracks } from "../../../shared/utils/setUtils.ts";
 import {

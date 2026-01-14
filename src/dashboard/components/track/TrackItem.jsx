@@ -3,7 +3,7 @@ import { useAtom } from "jotai";
 import { remove } from "lodash";
 import { FaPlus } from "react-icons/fa";
 import { SortableList, arrayMove } from "../../shared/SortableList.jsx";
-import { useIPCSend } from "../../core/hooks/useIPC.js";
+import { useIPCSend } from "../../core/hooks/useIPC";
 import {
   userDataAtom,
   recordingDataAtom,
@@ -12,7 +12,7 @@ import {
   helpTextAtom,
   useFlashingChannels,
 } from "../../core/state.js";
-import { updateActiveSet } from "../../core/utils.js";
+import { updateActiveSet } from "../../core/utils";
 import { getActiveSetTracks } from "../../../shared/utils/setUtils.ts";
 import {
   getRecordingForTrack,

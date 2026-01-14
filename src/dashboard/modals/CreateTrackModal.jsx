@@ -4,27 +4,15 @@ import { Modal } from "../shared/Modal.jsx";
 import { ModalHeader } from "../components/ModalHeader.js";
 import { ModalFooter } from "../components/ModalFooter.js";
 import { Button } from "../components/Button.js";
-import {
-  TextInput,
-  Select,
-  Label,
-  ValidationError,
-} from "../components/FormInputs.js";
+import { TextInput, Select, Label, ValidationError } from "../components/FormInputs.js";
 import { HelpIcon } from "../components/HelpIcon.js";
-import {
-  userDataAtom,
-  activeTrackIdAtom,
-  activeSetIdAtom,
-} from "../core/state.js";
-import { updateActiveSet } from "../core/utils.js";
+import { userDataAtom, activeTrackIdAtom, activeSetIdAtom } from "../core/state.js";
+import { updateActiveSet } from "../core/utils";
 import { getActiveSetTracks } from "../../shared/utils/setUtils.ts";
 import { HELP_TEXT } from "../../shared/helpText.ts";
-import { useNameValidation } from "../core/hooks/useNameValidation.js";
+import { useNameValidation } from "../core/hooks/useNameValidation";
 import { useTrackSlots } from "../core/hooks/useTrackSlots.js";
-import {
-  parsePitchClass,
-  pitchClassToName,
-} from "../../shared/midi/midiUtils.ts";
+import { parsePitchClass, pitchClassToName } from "../../shared/midi/midiUtils.ts";
 
 export const CreateTrackModal = ({ isOpen, onClose, inputConfig, onAlert }) => {
   const [userData, setUserData] = useAtom(userDataAtom);
@@ -35,8 +23,7 @@ export const CreateTrackModal = ({ isOpen, onClose, inputConfig, onAlert }) => {
   const [submitting, setSubmitting] = useState(false);
 
   const inputType = inputConfig?.type || "midi";
-  const noteMatchMode =
-    inputConfig?.noteMatchMode === "exactNote" ? "exactNote" : "pitchClass";
+  const noteMatchMode = inputConfig?.noteMatchMode === "exactNote" ? "exactNote" : "pitchClass";
   const globalMappings = userData.config || {};
   const maxTrackSlots = inputType === "midi" ? 12 : 10;
 
@@ -45,11 +32,7 @@ export const CreateTrackModal = ({ isOpen, onClose, inputConfig, onAlert }) => {
   const { validate } = useNameValidation(tracks);
   const validation = validate(trackName);
 
-  const { availableSlots, getTrigger } = useTrackSlots(
-    tracks,
-    globalMappings,
-    inputType
-  );
+  const { availableSlots, getTrigger } = useTrackSlots(tracks, globalMappings, inputType);
 
   const resolvedTrigger = getTrigger(trackSlot);
   const resolvedNoteName =
@@ -86,10 +69,7 @@ export const CreateTrackModal = ({ isOpen, onClose, inputConfig, onAlert }) => {
   if (!isOpen) return null;
 
   const canSubmit =
-    validation.isValid &&
-    trackSlot &&
-    !submitting &&
-    availableSlots.includes(trackSlot);
+    validation.isValid && trackSlot && !submitting && availableSlots.includes(trackSlot);
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -151,47 +131,34 @@ export const CreateTrackModal = ({ isOpen, onClose, inputConfig, onAlert }) => {
             className="w-full py-1 font-mono"
           >
             {availableSlots.length === 0 && (
-              <option value="">
-                No tracks available (max {maxTrackSlots} tracks)
-              </option>
+              <option value="">No tracks available (max {maxTrackSlots} tracks)</option>
             )}
-            {Array.from({ length: maxTrackSlots }, (_, i) => i + 1).map(
-              (slot) => {
-                const rawTrigger = getTrigger(slot);
-                const trigger =
-                  inputType === "midi"
-                    ? noteMatchMode === "pitchClass"
-                      ? (() => {
-                          const pc =
-                            typeof rawTrigger === "number"
-                              ? rawTrigger
-                              : parsePitchClass(rawTrigger);
-                          if (pc === null)
-                            return String(rawTrigger || "").trim();
-                          return pitchClassToName(pc) || String(pc);
-                        })()
-                      : String(rawTrigger || "").trim()
-                    : rawTrigger;
-                const takenBy = takenSlotToTrackName.get(slot) || "";
-                const isTaken = Boolean(takenBy);
-                return (
-                  <option
-                    key={slot}
-                    value={slot}
-                    className="bg-[#101010]"
-                    disabled={isTaken}
-                  >
-                    Track {slot} ({trigger || "not configured"})
-                    {isTaken ? ` — used by ${takenBy}` : ""}
-                  </option>
-                );
-              }
-            )}
+            {Array.from({ length: maxTrackSlots }, (_, i) => i + 1).map((slot) => {
+              const rawTrigger = getTrigger(slot);
+              const trigger =
+                inputType === "midi"
+                  ? noteMatchMode === "pitchClass"
+                    ? (() => {
+                        const pc =
+                          typeof rawTrigger === "number" ? rawTrigger : parsePitchClass(rawTrigger);
+                        if (pc === null) return String(rawTrigger || "").trim();
+                        return pitchClassToName(pc) || String(pc);
+                      })()
+                    : String(rawTrigger || "").trim()
+                  : rawTrigger;
+              const takenBy = takenSlotToTrackName.get(slot) || "";
+              const isTaken = Boolean(takenBy);
+              return (
+                <option key={slot} value={slot} className="bg-[#101010]" disabled={isTaken}>
+                  Track {slot} ({trigger || "not configured"})
+                  {isTaken ? ` — used by ${takenBy}` : ""}
+                </option>
+              );
+            })}
           </Select>
           {inputType === "midi" && resolvedNoteName ? (
             <div className="text-blue-500 text-[11px] mt-1 font-mono">
-              ✓ Will use trigger:{" "}
-              <span className="text-blue-500">{resolvedNoteName}</span>
+              ✓ Will use trigger: <span className="text-blue-500">{resolvedNoteName}</span>
             </div>
           ) : resolvedTrigger ? (
             <div className="text-blue-500 text-[11px] mt-1 font-mono">

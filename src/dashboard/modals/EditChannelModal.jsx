@@ -7,7 +7,7 @@ import { Button } from "../components/Button.js";
 import { Select, Label } from "../components/FormInputs.js";
 import { HelpIcon } from "../components/HelpIcon.js";
 import { userDataAtom, activeSetIdAtom } from "../core/state.js";
-import { updateActiveSet, updateUserData } from "../core/utils.js";
+import { updateActiveSet, updateUserData } from "../core/utils";
 import { getActiveSetTracks } from "../../shared/utils/setUtils.ts";
 import { HELP_TEXT } from "../../shared/helpText.ts";
 import {

@@ -35,8 +35,8 @@ import {
   saveUserDataSync,
   updateUserData,
   updateActiveSet,
-} from "./core/utils.js";
-import { useIPCSend, useIPCListener, useIPCInvoke } from "./core/hooks/useIPC.js";
+} from "./core/utils";
+import { useIPCSend, useIPCListener, useIPCInvoke } from "./core/hooks/useIPC";
 import {
   userDataAtom,
   recordingDataAtom,

@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { useAtom } from "jotai";
 import { remove } from "lodash";
-import { useIPCSend } from "../core/hooks/useIPC.js";
+import { useIPCSend } from "../core/hooks/useIPC";
 import { Modal } from "../shared/Modal.jsx";
 import { ModalHeader } from "../components/ModalHeader.js";
 import { SortableWrapper } from "../shared/SortableWrapper.jsx";
@@ -25,7 +25,7 @@ import {
   selectedChannelAtom,
   activeSetIdAtom,
 } from "../core/state.js";
-import { updateActiveSet, getMethodsByLayer } from "../core/utils.js";
+import { updateActiveSet, getMethodsByLayer } from "../core/utils";
 import { getActiveSetTracks } from "../../shared/utils/setUtils.ts";
 import { getBaseMethodNames } from "../utils/moduleUtils.ts";
 import { HELP_TEXT } from "../../shared/helpText.ts";

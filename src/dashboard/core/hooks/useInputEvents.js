@@ -12,7 +12,7 @@ import {
   resolveChannelTrigger,
 } from "../../../shared/midi/midiUtils.ts";
 import { getActiveSetTracks } from "../../../shared/utils/setUtils.ts";
-import { useIPCListener } from "./useIPC.js";
+import { useIPCListener } from "./useIPC";
 
 export const useInputEvents = ({
   userData,

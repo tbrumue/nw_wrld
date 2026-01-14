@@ -1,7 +1,7 @@
 import React from "react";
 import { Modal } from "../shared/Modal.jsx";
 import { ModalHeader } from "../components/ModalHeader.js";
-import { getMethodCode } from "../core/utils.js";
+import { getMethodCode } from "../core/utils";
 
 export const MethodCodeModal = ({ isOpen, onClose, moduleName, methodName }) => {
   const [methodCode, setMethodCode] = React.useState(null);

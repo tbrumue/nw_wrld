@@ -1,9 +1,12 @@
 import { useCallback, useEffect } from "react";
+
 const getMessaging = () => globalThis.nwWrldBridge?.messaging;
 
-export const useIPCSend = (channel = "dashboard-to-projector") => {
+export const useIPCSend = (
+  channel: "dashboard-to-projector" | "projector-to-dashboard" = "dashboard-to-projector"
+) => {
   return useCallback(
-    (type, props = {}) => {
+    (type: string, props: Record<string, unknown> = {}) => {
       const messaging = getMessaging();
       if (!messaging) return;
       if (channel === "dashboard-to-projector") {
@@ -21,7 +24,7 @@ export const useIPCSend = (channel = "dashboard-to-projector") => {
 };
 
 export const useIPCInvoke = () => {
-  return useCallback(async (channel, ...args) => {
+  return useCallback(async (channel: string, ...args: unknown[]) => {
     const messaging = getMessaging();
     if (!messaging) return null;
     if (channel === "input:configure") {
@@ -43,11 +46,15 @@ export const useIPCInvoke = () => {
   }, []);
 };
 
-export const useIPCListener = (channel, handler, deps = []) => {
+export const useIPCListener = (
+  channel: string,
+  handler: (...args: unknown[]) => void,
+  deps: ReadonlyArray<unknown> = []
+) => {
   useEffect(() => {
     const messaging = getMessaging();
     if (!messaging) return;
-    let cleanup;
+    let cleanup: void | (() => void);
     if (channel === "from-projector") {
       cleanup = messaging.onFromProjector?.(handler);
     } else if (channel === "from-dashboard") {
@@ -68,3 +75,4 @@ export const useIPCListener = (channel, handler, deps = []) => {
     };
   }, [channel, handler, ...deps]);
 };
+

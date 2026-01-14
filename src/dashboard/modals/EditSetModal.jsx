@@ -6,8 +6,8 @@ import { ModalFooter } from "../components/ModalFooter.js";
 import { Button } from "../components/Button.js";
 import { TextInput, Label, ValidationError } from "../components/FormInputs.js";
 import { userDataAtom } from "../core/state.js";
-import { updateUserData } from "../core/utils.js";
-import { useNameValidation } from "../core/hooks/useNameValidation.js";
+import { updateUserData } from "../core/utils";
+import { useNameValidation } from "../core/hooks/useNameValidation";
 
 export const EditSetModal = ({ isOpen, onClose, setId, onAlert }) => {
   const [userData, setUserData] = useAtom(userDataAtom);

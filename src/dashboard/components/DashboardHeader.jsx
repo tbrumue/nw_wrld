@@ -1,7 +1,7 @@
 import React from "react";
 import { FaBars, FaCog, FaCode, FaMusic, FaTag } from "react-icons/fa";
 import { Button } from "./Button.js";
-import { useUpdateCheck } from "../core/hooks/useUpdateCheck.js";
+import { useUpdateCheck } from "../core/hooks/useUpdateCheck";
 
 export const DashboardHeader = ({
   onSets,

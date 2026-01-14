@@ -8,12 +8,12 @@ import React, {
 import { useAtom } from "jotai";
 import { FaPlus, FaCode, FaEye, FaSpinner, FaCheck } from "react-icons/fa";
 import { Modal } from "../shared/Modal.jsx";
-import { useIPCListener, useIPCSend } from "../core/hooks/useIPC.js";
+import { useIPCListener, useIPCSend } from "../core/hooks/useIPC";
 import { ModalHeader } from "../components/ModalHeader.js";
 import { Button } from "../components/Button.js";
 import { HelpIcon } from "../components/HelpIcon.js";
 import { activeSetIdAtom, activeTrackIdAtom } from "../core/state.js";
-import { updateActiveSet } from "../core/utils.js";
+import { updateActiveSet } from "../core/utils";
 import { getActiveSetTracks } from "../../shared/utils/setUtils.ts";
 import { HELP_TEXT } from "../../shared/helpText.ts";
 

@@ -7,7 +7,7 @@ import { ModalHeader } from "../components/ModalHeader.js";
 import { ModalFooter } from "../components/ModalFooter.js";
 import { Button } from "../components/Button.js";
 import { RadioButton, Label } from "../components/FormInputs.js";
-import { updateUserData } from "../core/utils.js";
+import { updateUserData } from "../core/utils";
 import { EditSetModal } from "./EditSetModal.jsx";
 import { ConfirmationModal } from "./ConfirmationModal.jsx";
 import { deleteRecordingsForTracks } from "../../shared/json/recordingUtils.ts";

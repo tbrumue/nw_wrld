@@ -5,13 +5,13 @@ import { ModalHeader } from "../components/ModalHeader.js";
 import { ModalFooter } from "../components/ModalFooter.js";
 import { Button } from "../components/Button.js";
 import { TextInput, Label, ValidationError } from "../components/FormInputs.js";
-import { useNameValidation } from "../core/hooks/useNameValidation.js";
+import { useNameValidation } from "../core/hooks/useNameValidation";
 import {
   userDataAtom,
   activeTrackIdAtom,
   activeSetIdAtom,
 } from "../core/state.js";
-import { updateUserData } from "../core/utils.js";
+import { updateUserData } from "../core/utils";
 
 export const CreateSetModal = ({ isOpen, onClose, onAlert }) => {
   const [userData, setUserData] = useAtom(userDataAtom);

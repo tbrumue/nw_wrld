@@ -7,10 +7,10 @@ import { Button } from "../components/Button.js";
 import { TextInput, Select, Label, ValidationError } from "../components/FormInputs.js";
 import { HelpIcon } from "../components/HelpIcon.js";
 import { userDataAtom, activeSetIdAtom } from "../core/state.js";
-import { updateActiveSet } from "../core/utils.js";
+import { updateActiveSet } from "../core/utils";
 import { getActiveSetTracks } from "../../shared/utils/setUtils.ts";
 import { HELP_TEXT } from "../../shared/helpText.ts";
-import { useNameValidation } from "../core/hooks/useNameValidation.js";
+import { useNameValidation } from "../core/hooks/useNameValidation";
 import { useTrackSlots } from "../core/hooks/useTrackSlots.js";
 import { parsePitchClass, pitchClassToName } from "../../shared/midi/midiUtils.ts";
 
