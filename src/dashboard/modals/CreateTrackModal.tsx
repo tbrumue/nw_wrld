@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
-import { useAtom } from "jotai";
-import { Modal } from "../shared/Modal.jsx";
+import React, { useState, useEffect, useMemo } from "react";
+import { useAtom, type PrimitiveAtom } from "jotai";
+import { Modal } from "../shared/Modal";
 import { ModalHeader } from "../components/ModalHeader";
 import { ModalFooter } from "../components/ModalFooter";
 import { Button } from "../components/Button";
@@ -14,17 +14,29 @@ import { useNameValidation } from "../core/hooks/useNameValidation";
 import { useTrackSlots } from "../core/hooks/useTrackSlots.ts";
 import { parsePitchClass, pitchClassToName } from "../../shared/midi/midiUtils.ts";
 
-export const CreateTrackModal = ({ isOpen, onClose, inputConfig, onAlert }) => {
+type InputConfigLike = {
+  type?: unknown;
+  noteMatchMode?: unknown;
+};
+
+type CreateTrackModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  inputConfig?: InputConfigLike | null;
+  onAlert?: ((message: string) => void) | null;
+};
+
+export const CreateTrackModal = ({ isOpen, onClose, inputConfig, onAlert }: CreateTrackModalProps) => {
   const [userData, setUserData] = useAtom(userDataAtom);
-  const [, setActiveTrackId] = useAtom(activeTrackIdAtom);
+  const [, setActiveTrackId] = useAtom(activeTrackIdAtom as unknown as PrimitiveAtom<string | null>);
   const [activeSetId] = useAtom(activeSetIdAtom);
   const [trackName, setTrackName] = useState("");
   const [trackSlot, setTrackSlot] = useState(1);
   const [submitting, setSubmitting] = useState(false);
 
-  const inputType = inputConfig?.type || "midi";
+  const inputType = inputConfig?.type === "osc" ? "osc" : "midi";
   const noteMatchMode = inputConfig?.noteMatchMode === "exactNote" ? "exactNote" : "pitchClass";
-  const globalMappings = userData.config || {};
+  const globalMappings = (userData as Record<string, unknown>).config || {};
   const maxTrackSlots = inputType === "midi" ? 12 : 10;
 
   const tracks = getActiveSetTracks(userData, activeSetId);
@@ -39,20 +51,19 @@ export const CreateTrackModal = ({ isOpen, onClose, inputConfig, onAlert }) => {
     inputType === "midi"
       ? (() => {
           const pc =
-            typeof resolvedTrigger === "number"
-              ? resolvedTrigger
-              : parsePitchClass(resolvedTrigger);
+            typeof resolvedTrigger === "number" ? resolvedTrigger : parsePitchClass(resolvedTrigger);
           if (pc === null) return null;
           return pitchClassToName(pc) || String(pc);
         })()
       : null;
 
   const takenSlotToTrackName = useMemo(() => {
-    const map = new Map();
-    tracks.forEach((t) => {
-      const slot = t?.trackSlot;
+    const map = new Map<number, string>();
+    (tracks as unknown[]).forEach((t) => {
+      const tr = t as Record<string, unknown> | null;
+      const slot = typeof tr?.trackSlot === "number" ? tr.trackSlot : null;
       if (!slot) return;
-      map.set(slot, String(t?.name || "").trim() || `Track ${slot}`);
+      map.set(slot, String(tr?.name || "").trim() || `Track ${slot}`);
     });
     return map;
   }, [tracks]);
@@ -75,9 +86,14 @@ export const CreateTrackModal = ({ isOpen, onClose, inputConfig, onAlert }) => {
     if (!canSubmit) return;
     setSubmitting(true);
     try {
-      const newTrackId = Date.now();
-      updateActiveSet(setUserData, activeSetId, (activeSet) => {
-        activeSet.tracks.push({
+      const newTrackId = `track_${Date.now()}`;
+      updateActiveSet(setUserData, activeSetId, (activeSet: unknown) => {
+        const s = activeSet as Record<string, unknown>;
+        const tracksArr = Array.isArray(s.tracks) ? (s.tracks as unknown[]) : [];
+        if (!Array.isArray(s.tracks)) {
+          s.tracks = tracksArr;
+        }
+        tracksArr.push({
           id: newTrackId,
           name: trackName,
           trackSlot: trackSlot,
@@ -127,7 +143,7 @@ export const CreateTrackModal = ({ isOpen, onClose, inputConfig, onAlert }) => {
           </div>
           <Select
             value={trackSlot}
-            onChange={(e) => setTrackSlot(parseInt(e.target.value))}
+            onChange={(e) => setTrackSlot(parseInt(e.target.value, 10))}
             className="w-full py-1 font-mono"
           >
             {availableSlots.length === 0 && (
@@ -140,7 +156,9 @@ export const CreateTrackModal = ({ isOpen, onClose, inputConfig, onAlert }) => {
                   ? noteMatchMode === "pitchClass"
                     ? (() => {
                         const pc =
-                          typeof rawTrigger === "number" ? rawTrigger : parsePitchClass(rawTrigger);
+                          typeof rawTrigger === "number"
+                            ? rawTrigger
+                            : parsePitchClass(rawTrigger);
                         if (pc === null) return String(rawTrigger || "").trim();
                         return pitchClassToName(pc) || String(pc);
                       })()
@@ -179,3 +197,4 @@ export const CreateTrackModal = ({ isOpen, onClose, inputConfig, onAlert }) => {
     </Modal>
   );
 };
+

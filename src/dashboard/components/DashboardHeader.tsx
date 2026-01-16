@@ -2,6 +2,15 @@ import { FaBars, FaCog, FaCode, FaMusic, FaTag } from "react-icons/fa";
 import { Button } from "./Button";
 import { useUpdateCheck } from "../core/hooks/useUpdateCheck";
 
+type DashboardHeaderProps = {
+  onSets?: (() => void) | null;
+  onTracks?: (() => void) | null;
+  onModules?: (() => void) | null;
+  onSettings?: (() => void) | null;
+  onDebugOverlay?: (() => void) | null;
+  onReleases?: (() => void) | null;
+};
+
 export const DashboardHeader = ({
   onSets,
   onTracks,
@@ -9,7 +18,7 @@ export const DashboardHeader = ({
   onSettings,
   onDebugOverlay,
   onReleases,
-}) => {
+}: DashboardHeaderProps) => {
   const update = useUpdateCheck();
   const hasUpdate = update.status === "updateAvailable";
 
@@ -42,16 +51,12 @@ export const DashboardHeader = ({
         </div>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
-            <div className="opacity-50 text-[11px] text-neutral-300">
-              nw_wrld
-            </div>
+            <div className="opacity-50 text-[11px] text-neutral-300">nw_wrld</div>
             <button
               type="button"
               onClick={handleOpenUpdates}
               className={`relative flex items-center ${
-                hasUpdate
-                  ? "text-red-500/80 opacity-100"
-                  : "text-neutral-300 opacity-50"
+                hasUpdate ? "text-red-500/80 opacity-100" : "text-neutral-300 opacity-50"
               }`}
             >
               <FaTag size={12} className="opacity-75" />
@@ -65,3 +70,4 @@ export const DashboardHeader = ({
     </div>
   );
 };
+

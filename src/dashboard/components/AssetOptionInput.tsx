@@ -1,43 +1,59 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import { Select, TextInput } from "./FormInputs";
 
 const CUSTOM_VALUE = "__nw_wrld_custom__";
 
-const listAssetsCached = (() => {
-  const cache = new Map();
+type Listing = { ok: boolean; files: string[]; dirs: string[] };
 
-  return async (relDir) => {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return (
+    Boolean(value) &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.prototype.toString.call(value) === "[object Object]"
+  );
+}
+
+const listAssetsCached = (() => {
+  const cache = new Map<string, Listing | Promise<Listing>>();
+
+  return async (relDir: string): Promise<Listing> => {
     const key = String(relDir || "").trim();
     if (!key) return { ok: false, files: [], dirs: [] };
 
     const existing = cache.get(key);
-    if (existing && typeof existing.then === "function") {
+    if (existing && typeof (existing as Promise<Listing>).then === "function") {
       try {
-        return await existing;
+        return await (existing as Promise<Listing>);
       } catch {
         return { ok: false, files: [], dirs: [] };
       }
     }
-    if (existing && typeof existing === "object") return existing;
+    if (existing && typeof existing === "object") return existing as Listing;
 
-    const bridge = globalThis.nwWrldBridge;
+    const bridge = (globalThis as unknown as { nwWrldBridge?: unknown }).nwWrldBridge;
+    const workspace = isPlainObject(bridge) ? (bridge as Record<string, unknown>)["workspace"] : null;
+    const listAssetsValue = isPlainObject(workspace)
+      ? (workspace as Record<string, unknown>)["listAssets"]
+      : null;
     const fn =
-      bridge &&
-      bridge.workspace &&
-      typeof bridge.workspace.listAssets === "function"
-        ? bridge.workspace.listAssets
+      typeof listAssetsValue === "function"
+        ? (listAssetsValue as (dir: string) => Promise<unknown>)
         : null;
 
-    const p = (async () => {
+    const p = (async (): Promise<Listing> => {
       if (!fn) return { ok: false, files: [], dirs: [] };
       try {
         const res = await fn(key);
-        const ok = Boolean(res?.ok);
-        const files = Array.isArray(res?.files)
-          ? res.files.map((n) => String(n || "")).filter(Boolean)
+        const ok = isPlainObject(res) ? Boolean(res.ok) : false;
+        const filesRaw = isPlainObject(res) ? (res.files as unknown) : null;
+        const dirsRaw = isPlainObject(res) ? (res.dirs as unknown) : null;
+        const files = Array.isArray(filesRaw)
+          ? filesRaw.map((n) => String(n || "")).filter(Boolean)
           : [];
-        const dirs = Array.isArray(res?.dirs)
-          ? res.dirs.map((n) => String(n || "")).filter(Boolean)
+        const dirs = Array.isArray(dirsRaw)
+          ? dirsRaw.map((n) => String(n || "")).filter(Boolean)
           : [];
         return { ok, files, dirs };
       } catch {
@@ -52,14 +68,14 @@ const listAssetsCached = (() => {
   };
 })();
 
-const hasListSyntax = (value) => {
+function hasListSyntax(value: unknown): boolean {
   const s = String(value ?? "");
   return s.includes("\n") || s.includes(",");
-};
+}
 
-const normalizeExtSet = (extensions) => {
+function normalizeExtSet(extensions: unknown): Set<string> {
   const list = Array.isArray(extensions) ? extensions : [];
-  const out = new Set();
+  const out = new Set<string>();
   list.forEach((e) => {
     const raw = String(e || "").trim();
     if (!raw) return;
@@ -67,6 +83,16 @@ const normalizeExtSet = (extensions) => {
     out.add(ext);
   });
   return out;
+}
+
+type AssetOptionInputProps = {
+  kind?: "file" | "dir";
+  baseDir?: string;
+  value: unknown;
+  onChange?: ((next: string) => void) | null;
+  extensions?: unknown;
+  allowCustom?: boolean;
+  className?: string;
 };
 
 export const AssetOptionInput = memo(
@@ -78,8 +104,8 @@ export const AssetOptionInput = memo(
     extensions = null,
     allowCustom = true,
     className = "w-20 py-0.5",
-  }) => {
-    const [listing, setListing] = useState({ ok: false, files: [], dirs: [] });
+  }: AssetOptionInputProps) => {
+    const [listing, setListing] = useState<Listing>({ ok: false, files: [], dirs: [] });
     const [isCustom, setIsCustom] = useState(false);
     const didAutoPickRef = useRef(false);
 
@@ -129,10 +155,7 @@ export const AssetOptionInput = memo(
         }));
     }, [base, extSet, kind, listing.dirs, listing.files]);
 
-    const availableValues = useMemo(
-      () => new Set(available.map((o) => o.value)),
-      [available]
-    );
+    const availableValues = useMemo(() => new Set(available.map((o) => o.value)), [available]);
 
     useEffect(() => {
       if (!allowCustom) {
@@ -180,7 +203,7 @@ export const AssetOptionInput = memo(
       <div className="flex flex-col gap-1">
         <Select
           value={selectValue}
-          onChange={(e) => {
+          onChange={(e: ChangeEvent<HTMLSelectElement>) => {
             const next = e.target.value;
             if (next === CUSTOM_VALUE) {
               setIsCustom(true);
@@ -205,7 +228,7 @@ export const AssetOptionInput = memo(
         {allowCustom && isCustom && (
           <TextInput
             value={current}
-            onChange={(e) => {
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
               if (typeof onChange === "function") onChange(e.target.value);
             }}
             className={className}
@@ -215,5 +238,4 @@ export const AssetOptionInput = memo(
     );
   }
 );
-
 

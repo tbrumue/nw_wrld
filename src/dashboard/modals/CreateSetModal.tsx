@@ -1,26 +1,30 @@
-import { useState, useEffect } from "react";
-import { useAtom } from "jotai";
-import { Modal } from "../shared/Modal.jsx";
+import React, { useState, useEffect } from "react";
+import { useAtom, type PrimitiveAtom } from "jotai";
+import { Modal } from "../shared/Modal";
 import { ModalHeader } from "../components/ModalHeader";
 import { ModalFooter } from "../components/ModalFooter";
 import { Button } from "../components/Button";
 import { TextInput, Label, ValidationError } from "../components/FormInputs";
 import { useNameValidation } from "../core/hooks/useNameValidation";
-import {
-  userDataAtom,
-  activeTrackIdAtom,
-  activeSetIdAtom,
-} from "../core/state.ts";
+import { userDataAtom, activeTrackIdAtom, activeSetIdAtom } from "../core/state.ts";
 import { updateUserData } from "../core/utils";
 
-export const CreateSetModal = ({ isOpen, onClose, onAlert }) => {
+type CreateSetModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  onAlert?: ((message: string) => void) | null;
+};
+
+export const CreateSetModal = ({ isOpen, onClose, onAlert }: CreateSetModalProps) => {
   const [userData, setUserData] = useAtom(userDataAtom);
-  const [, setActiveTrackId] = useAtom(activeTrackIdAtom);
-  const [, setActiveSetId] = useAtom(activeSetIdAtom);
+  const [, setActiveTrackId] = useAtom(activeTrackIdAtom as unknown as PrimitiveAtom<string | null>);
+  const [, setActiveSetId] = useAtom(activeSetIdAtom as unknown as PrimitiveAtom<string | null>);
   const [setName, setSetName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const sets = userData.sets || [];
+  const sets = Array.isArray(userData.sets)
+    ? (userData.sets as Array<Record<string, unknown>>)
+    : [];
 
   const { validate } = useNameValidation(sets);
   const validation = validate(setName);
@@ -40,11 +44,15 @@ export const CreateSetModal = ({ isOpen, onClose, onAlert }) => {
     setSubmitting(true);
     try {
       const newSetId = `set_${Date.now()}`;
-      updateUserData(setUserData, (draft) => {
-        if (!Array.isArray(draft.sets)) {
-          draft.sets = [];
+      updateUserData(setUserData, (draft: unknown) => {
+        const d = draft as Record<string, unknown>;
+        const sets = Array.isArray(d.sets)
+          ? (d.sets as Array<Record<string, unknown>>)
+          : [];
+        if (!Array.isArray(d.sets)) {
+          d.sets = sets;
         }
-        draft.sets.push({
+        sets.push({
           id: newSetId,
           name: setName.trim(),
           tracks: [],
@@ -86,7 +94,9 @@ export const CreateSetModal = ({ isOpen, onClose, onAlert }) => {
       </div>
 
       <ModalFooter>
-        <Button onClick={onClose} type="secondary">Cancel</Button>
+        <Button onClick={onClose} type="secondary">
+          Cancel
+        </Button>
         <Button onClick={handleSubmit} disabled={!canSubmit}>
           {submitting ? "Creating..." : "Create Set"}
         </Button>
@@ -94,3 +104,4 @@ export const CreateSetModal = ({ isOpen, onClose, onAlert }) => {
     </Modal>
   );
 };
+

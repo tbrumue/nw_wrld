@@ -1,7 +1,7 @@
 import { memo, useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useAtom } from "jotai";
+import { useAtom, type PrimitiveAtom } from "jotai";
 import * as d3 from "d3";
-import { SortableWrapper } from "../../shared/SortableWrapper.jsx";
+import { SortableWrapper } from "../../shared/SortableWrapper";
 import {
   userDataAtom,
   recordingDataAtom,
@@ -26,19 +26,47 @@ import { FaPlus } from "react-icons/fa";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Tooltip } from "../Tooltip";
 
+type Track = {
+  id: string | number;
+  name: string;
+  channelMappings?: Record<string, unknown>;
+  modulesData: Record<string, { constructor?: unknown[]; methods?: Record<string, unknown[]> }>;
+};
+
+type SelectedChannel = {
+  trackIndex: number;
+  instanceId: string;
+  channelNumber: number | "constructor";
+  isConstructor: boolean;
+};
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return (
+    Boolean(value) &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.prototype.toString.call(value) === "[object Object]"
+  );
+}
+
+type ModuleSelectorProps = {
+  trackIndex: number;
+  predefinedModules: unknown[];
+  openRightMenu: (trackIndex: number) => void;
+  stopPlayback: () => void;
+  onShowTrackData: (track: unknown) => void;
+  inputConfig: { type?: string } | null;
+};
+
 export const ModuleSelector = memo(
   ({
     trackIndex,
-    predefinedModules,
-    openRightMenu,
-    stopPlayback,
-    onShowTrackData,
     inputConfig,
-  }) => {
-    const [userData, setUserData] = useAtom(userDataAtom);
+  }: ModuleSelectorProps) => {
+    const [userData] = useAtom(userDataAtom);
     const [activeSetId] = useAtom(activeSetIdAtom);
-    const tracks = getActiveSetTracks(userData, activeSetId);
-    const track = tracks[trackIndex];
+    const tracks = getActiveSetTracks(userData, activeSetId) as unknown as Track[];
+    const track = tracks[trackIndex] as Track;
     const currentInputType = inputConfig?.type || "midi";
     const globalMappings = userData.config || {};
     const resolvedTrigger = resolveTrackTrigger(track, currentInputType, globalMappings);
@@ -47,8 +75,7 @@ export const ModuleSelector = memo(
       if (resolvedTrigger === "" || resolvedTrigger === null || resolvedTrigger === undefined) {
         return resolvedTrigger;
       }
-      const pc =
-        typeof resolvedTrigger === "number" ? resolvedTrigger : parsePitchClass(resolvedTrigger);
+      const pc = typeof resolvedTrigger === "number" ? resolvedTrigger : parsePitchClass(resolvedTrigger);
       if (pc === null) return resolvedTrigger;
       const name = pitchClassToName(pc);
       return name || String(pc);
@@ -68,7 +95,7 @@ export const ModuleSelector = memo(
               resolvedNoteName !== undefined ? (
                 <>
                   {" "}
-                  [<span className="text-blue-500">{resolvedNoteName}</span>]
+                  [<span className="text-blue-500">{String(resolvedNoteName)}</span>]
                 </>
               ) : (
                 ""
@@ -81,9 +108,9 @@ export const ModuleSelector = memo(
   }
 );
 
-const groupSequences = (sequences, threshold = 0.1) => {
-  const grouped = [];
-  let currentGroup = null;
+const groupSequences = (sequences: Array<{ time: number; duration: number }>, threshold = 0.1) => {
+  const grouped: Array<{ time: number; duration: number }> = [];
+  let currentGroup: { time: number; duration: number } | null = null;
 
   sequences.forEach((seq) => {
     if (currentGroup && seq.time <= currentGroup.time + currentGroup.duration + threshold) {
@@ -102,12 +129,28 @@ const groupSequences = (sequences, threshold = 0.1) => {
   return grouped;
 };
 
+type NoteSelectorProps = {
+  trackIndex: number;
+  instanceId: string;
+  moduleType: string;
+  predefinedModules: unknown[];
+  onRemoveModule?: ((instanceId: string) => void) | null;
+  dragHandleProps?: Record<string, unknown> | null;
+  inputConfig: { type?: string } | null;
+  config: Record<string, unknown> | null;
+  isSequencerPlaying: boolean;
+  sequencerCurrentStep: number;
+  handleSequencerToggle: (channelKey: string, stepIndex: number) => void;
+  workspacePath?: string | null;
+  workspaceModuleFiles?: string[];
+  workspaceModuleLoadFailures?: string[];
+};
+
 export const NoteSelector = memo(
   ({
     trackIndex,
     instanceId,
     moduleType,
-    predefinedModules,
     onRemoveModule,
     dragHandleProps,
     inputConfig,
@@ -118,18 +161,24 @@ export const NoteSelector = memo(
     workspacePath = null,
     workspaceModuleFiles = [],
     workspaceModuleLoadFailures = [],
-  }) => {
+  }: NoteSelectorProps) => {
     const [userData, setUserData] = useAtom(userDataAtom);
     const [recordingData] = useAtom(recordingDataAtom);
-    const [selectedChannel, setSelectedChannel] = useAtom(selectedChannelAtom);
+    const [selectedChannelRaw, setSelectedChannel] = useAtom(
+      selectedChannelAtom as unknown as PrimitiveAtom<unknown>
+    );
+    const selectedChannel = selectedChannelRaw as SelectedChannel | null;
     const [flashingChannels] = useAtom(flashingChannelsAtom);
     const [flashingConstructors] = useAtom(flashingConstructorsAtom);
     const [activeSetId] = useAtom(activeSetIdAtom);
-    const tracks = getActiveSetTracks(userData, activeSetId);
-    const track = tracks[trackIndex];
-    const moduleData = track.modulesData[instanceId] || {
-      constructor: [],
-      methods: {},
+    const tracks = getActiveSetTracks(userData, activeSetId) as unknown as Track[];
+    const track = tracks[trackIndex] as Track;
+    const moduleDataRaw = (track.modulesData || {})[instanceId] || null;
+    const moduleData = {
+      constructor: Array.isArray(moduleDataRaw?.constructor) ? moduleDataRaw.constructor : [],
+      methods: isPlainObject(moduleDataRaw?.methods)
+        ? (moduleDataRaw.methods as Record<string, unknown[]>)
+        : ({} as Record<string, unknown[]>),
     };
     const rowHeight = 12;
 
@@ -162,11 +211,16 @@ export const NoteSelector = memo(
     useEffect(() => {
       const loadChannels = async () => {
         if (track?.channelMappings) {
-          const recording = getRecordingForTrack(recordingData, track.id);
+          const recording = getRecordingForTrack(recordingData, String(track.id));
           const recordingMap = new Map();
-          if (recording?.channels) {
-            recording.channels.forEach((ch) => {
-              recordingMap.set(ch.name, ch.sequences || []);
+          const channelsRaw = isPlainObject(recording) ? recording.channels : null;
+          if (Array.isArray(channelsRaw)) {
+            channelsRaw.forEach((ch) => {
+              const c = isPlainObject(ch) ? ch : {};
+              const name = String(c.name ?? "");
+              if (!name) return;
+              const seq = Array.isArray(c.sequences) ? c.sequences : [];
+              recordingMap.set(name, seq);
             });
           }
 
@@ -193,12 +247,20 @@ export const NoteSelector = memo(
       const channelNumbers = new Set(channelsData.map((c) => String(c.number)));
 
       updateActiveSet(setUserData, activeSetId, (activeSet) => {
-        const trackDraft = activeSet.tracks[trackIndex];
-        if (!trackDraft?.modulesData?.[instanceId]?.methods) return;
-        const methods = trackDraft.modulesData[instanceId].methods;
-        Object.keys(methods).forEach((channelKey) => {
+        if (!isPlainObject(activeSet)) return;
+        const tracksUnknown = (activeSet as Record<string, unknown>).tracks;
+        if (!Array.isArray(tracksUnknown)) return;
+        const trackDraft = tracksUnknown[trackIndex];
+        if (!isPlainObject(trackDraft)) return;
+        const modulesDataUnknown = (trackDraft as Record<string, unknown>).modulesData;
+        if (!isPlainObject(modulesDataUnknown)) return;
+        const mdUnknown = (modulesDataUnknown as Record<string, unknown>)[instanceId];
+        if (!isPlainObject(mdUnknown)) return;
+        const methodsUnknown = (mdUnknown as Record<string, unknown>).methods;
+        if (!isPlainObject(methodsUnknown)) return;
+        Object.keys(methodsUnknown).forEach((channelKey) => {
           if (!channelNumbers.has(channelKey)) {
-            delete methods[channelKey];
+            delete (methodsUnknown as Record<string, unknown>)[channelKey];
           }
         });
       });
@@ -376,11 +438,7 @@ export const NoteSelector = memo(
         </div>
         <div className="">
           <div className="pl-12 flex flex-col gap-0">
-            <div
-              className={`flex items-center p-0 ${
-                isConstructorSelected ? "bg-white/5" : "bg-transparent"
-              }`}
-            >
+            <div className={`flex items-center p-0 ${isConstructorSelected ? "bg-white/5" : "bg-transparent"}`}>
               <div
                 className={`uppercase w-[140px] pr-4 text-[11px] flex items-center gap-2 cursor-pointer ${
                   flashingConstructors.has(`${track.id}:${instanceId}`)
@@ -426,17 +484,11 @@ export const NoteSelector = memo(
               return (
                 <div
                   key={channel.number}
-                  className={`uppercase flex items-center p-0 ${
-                    isSelected ? "bg-white/5" : "bg-transparent"
-                  }`}
+                  className={`uppercase flex items-center p-0 ${isSelected ? "bg-white/5" : "bg-transparent"}`}
                 >
                   <div
                     className={`w-[140px] pr-4 text-[11px] font-mono flex items-center gap-2 cursor-pointer ${
-                      isFlashing
-                        ? "text-red-500"
-                        : isSelected
-                          ? "text-neutral-300"
-                          : "text-neutral-300"
+                      isFlashing ? "text-red-500" : isSelected ? "text-neutral-300" : "text-neutral-300"
                     }`}
                     data-testid="module-channel-config"
                     data-module-instance-id={instanceId}
@@ -468,15 +520,20 @@ export const NoteSelector = memo(
                       }
                       if (currentInputType === "midi") {
                         const noteMatchMode =
-                          globalMappings?.input?.noteMatchMode === "exactNote"
-                            ? "exactNote"
-                            : "pitchClass";
+                          (() => {
+                            const inputRaw = isPlainObject(globalMappings)
+                              ? (globalMappings as Record<string, unknown>).input
+                              : null;
+                            const mode =
+                              isPlainObject(inputRaw) && inputRaw.noteMatchMode === "exactNote"
+                                ? "exactNote"
+                                : "pitchClass";
+                            return mode;
+                          })();
                         if (noteMatchMode === "exactNote") {
                           const label = String(resolvedChannelTrigger ?? "").trim();
                           return label ? (
-                            <span className={isFlashing ? "text-red-500" : "text-blue-500"}>
-                              {label}
-                            </span>
+                            <span className={isFlashing ? "text-red-500" : "text-blue-500"}>{label}</span>
                           ) : (
                             `Channel ${channel.number}`
                           );
@@ -488,9 +545,7 @@ export const NoteSelector = memo(
                             : parsePitchClass(resolvedChannelTrigger);
                         const name = pc !== null ? pitchClassToName(pc) : null;
                         return name ? (
-                          <span className={isFlashing ? "text-red-500" : "text-blue-500"}>
-                            {name}
-                          </span>
+                          <span className={isFlashing ? "text-red-500" : "text-blue-500"}>{name}</span>
                         ) : (
                           `Channel ${channel.number}`
                         );
@@ -507,12 +562,14 @@ export const NoteSelector = memo(
                       <div className="flex gap-0.5 items-center" style={{ height: rowHeight }}>
                         {Array.from({ length: 16 }).map((_, stepIndex) => {
                           const channelKey = String(channel.number);
-                          const sequencerData = getSequencerForTrack(recordingData, track.id);
-                          const channelPattern = sequencerData.pattern?.[channelKey] || [];
-                          const isActive =
-                            Array.isArray(channelPattern) && channelPattern.includes(stepIndex);
-                          const isCurrentStep =
-                            isSequencerPlaying && sequencerCurrentStep === stepIndex;
+                          const sequencerData = getSequencerForTrack(recordingData, String(track.id));
+                          const patternRaw = isPlainObject(sequencerData)
+                            ? (sequencerData as Record<string, unknown>).pattern
+                            : null;
+                          const pattern = isPlainObject(patternRaw) ? (patternRaw as Record<string, unknown>) : {};
+                          const channelPattern = pattern[channelKey] || [];
+                          const isActive = Array.isArray(channelPattern) && channelPattern.includes(stepIndex);
+                          const isCurrentStep = isSequencerPlaying && sequencerCurrentStep === stepIndex;
 
                           return (
                             <button
@@ -545,9 +602,7 @@ export const NoteSelector = memo(
                       </div>
                     ) : (
                       <svg
-                        ref={(ref) =>
-                          ref && visualizeChannel(channel, ref, trackDuration, moduleData)
-                        }
+                        ref={(ref) => ref && visualizeChannel(channel, ref, trackDuration, moduleData)}
                         className="w-full"
                         style={{ height: rowHeight }}
                       ></svg>
@@ -562,6 +617,22 @@ export const NoteSelector = memo(
     );
   }
 );
+
+type SortableModuleItemProps = {
+  id: string;
+  moduleInstance: { id: string; type: string };
+  trackIndex: number;
+  predefinedModules: unknown[];
+  onRemoveModule?: ((instanceId: string) => void) | null;
+  inputConfig: { type?: string } | null;
+  config: Record<string, unknown> | null;
+  isSequencerPlaying: boolean;
+  sequencerCurrentStep: number;
+  handleSequencerToggle: (channelKey: string, stepIndex: number) => void;
+  workspacePath?: string | null;
+  workspaceModuleFiles?: string[];
+  workspaceModuleLoadFailures?: string[];
+};
 
 export const SortableModuleItem = memo(
   ({
@@ -578,7 +649,7 @@ export const SortableModuleItem = memo(
     workspacePath = null,
     workspaceModuleFiles = [],
     workspaceModuleLoadFailures = [],
-  }) => {
+  }: SortableModuleItemProps) => {
     return (
       <SortableWrapper id={id}>
         {({ dragHandleProps, isDragging }) => (
@@ -590,7 +661,7 @@ export const SortableModuleItem = memo(
                 moduleType={moduleInstance.type}
                 predefinedModules={predefinedModules}
                 onRemoveModule={onRemoveModule}
-                dragHandleProps={dragHandleProps}
+                dragHandleProps={dragHandleProps as unknown as Record<string, unknown>}
                 inputConfig={inputConfig}
                 config={config}
                 isSequencerPlaying={isSequencerPlaying}
@@ -607,3 +678,4 @@ export const SortableModuleItem = memo(
     );
   }
 );
+

@@ -1,11 +1,11 @@
-import { memo, useRef, useEffect, useMemo } from "react";
+import React, { memo, useRef, useEffect, useMemo } from "react";
 import { Button } from "../components/Button";
 import { HelpIcon } from "../components/HelpIcon";
 import { HELP_TEXT } from "../../shared/helpText.ts";
 
-const renderColoredLog = (log) => {
+const renderColoredLog = (log: string) => {
   const lines = log.split("\n");
-  const parts = [];
+  const parts: React.ReactNode[] = [];
 
   lines.forEach((line, lineIndex) => {
     if (line.trim() === "") {
@@ -41,9 +41,7 @@ const renderColoredLog = (log) => {
           parts.push(
             <span key={`value-${lineIndex}`} className="text-neutral-300">
               {" "}
-              <span className="text-[rgba(255,150,150,0.9)] font-medium">
-                {value}
-              </span>
+              <span className="text-[rgba(255,150,150,0.9)] font-medium">{value}</span>
             </span>
           );
         } else if (label === "Track" || label === "Module") {
@@ -58,9 +56,9 @@ const renderColoredLog = (log) => {
             const jsonMatch = value.match(/^(\{[\s\S]*\})$/);
             if (jsonMatch) {
               const jsonStr = jsonMatch[1];
-              const jsonParts = [];
+              const jsonParts: React.ReactNode[] = [];
               let inString = false;
-              let stringChar = null;
+              let stringChar: string | null = null;
               let currentPart = "";
               let keyMode = true;
 
@@ -74,10 +72,7 @@ const renderColoredLog = (log) => {
                     stringChar = char;
                     if (currentPart.trim()) {
                       jsonParts.push(
-                        <span
-                          key={`json-${i}-struct`}
-                          className="text-neutral-300/30"
-                        >
+                        <span key={`json-${i}-struct`} className="text-neutral-300/30">
                           {currentPart}
                         </span>
                       );
@@ -89,10 +84,7 @@ const renderColoredLog = (log) => {
                     stringChar = null;
                     currentPart += char;
                     jsonParts.push(
-                      <span
-                        key={`json-${i}-string`}
-                        className="text-[rgba(180,120,120,0.85)]"
-                      >
+                      <span key={`json-${i}-string`} className="text-[rgba(180,120,120,0.85)]">
                         {currentPart}
                       </span>
                     );
@@ -106,44 +98,29 @@ const renderColoredLog = (log) => {
                 } else if (char === ":" && !inString) {
                   if (currentPart.trim()) {
                     jsonParts.push(
-                      <span
-                        key={`json-${i}-key`}
-                        className="text-neutral-300/70"
-                      >
+                      <span key={`json-${i}-key`} className="text-neutral-300/70">
                         {currentPart}
                       </span>
                     );
                     currentPart = "";
                   }
                   jsonParts.push(
-                    <span
-                      key={`json-${i}-colon`}
-                      className="text-neutral-300/30"
-                    >
+                    <span key={`json-${i}-colon`} className="text-neutral-300/30">
                       {char}
                     </span>
                   );
                   keyMode = false;
-                } else if (
-                  (char === "," || char === "{" || char === "}") &&
-                  !inString
-                ) {
+                } else if ((char === "," || char === "{" || char === "}") && !inString) {
                   if (currentPart.trim()) {
                     jsonParts.push(
-                      <span
-                        key={`json-${i}-value`}
-                        className="text-neutral-300"
-                      >
+                      <span key={`json-${i}-value`} className="text-neutral-300">
                         {currentPart}
                       </span>
                     );
                     currentPart = "";
                   }
                   jsonParts.push(
-                    <span
-                      key={`json-${i}-struct`}
-                      className="text-neutral-300/30"
-                    >
+                    <span key={`json-${i}-struct`} className="text-neutral-300/30">
                       {char}
                     </span>
                   );
@@ -155,7 +132,7 @@ const renderColoredLog = (log) => {
 
               if (currentPart.trim()) {
                 jsonParts.push(
-                  <span key={`json-final`} className="text-neutral-300">
+                  <span key="json-final" className="text-neutral-300">
                     {currentPart}
                   </span>
                 );
@@ -216,79 +193,81 @@ const renderColoredLog = (log) => {
   return <>{parts}</>;
 };
 
-const LogItem = memo(({ log, index }) => {
-  return (
-    <div className="flex flex-wrap gap-x-2 mb-1">{renderColoredLog(log)}</div>
-  );
+type LogItemProps = {
+  log: string;
+  index: number;
+};
+
+const LogItem = memo(({ log }: LogItemProps) => {
+  return <div className="flex flex-wrap gap-x-2 mb-1">{renderColoredLog(log)}</div>;
 });
 
 LogItem.displayName = "LogItem";
 
-export const DebugOverlayModal = memo(
-  ({ isOpen, onClose, debugLogs }) => {
-    const logContainerRef = useRef(null);
-    const scrollTimeoutRef = useRef(null);
+type DebugOverlayModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  debugLogs: string[];
+};
 
-    const visibleLogs = useMemo(() => {
-      return debugLogs.slice(-200);
-    }, [debugLogs]);
+export const DebugOverlayModal = memo(({ isOpen, onClose, debugLogs }: DebugOverlayModalProps) => {
+  const logContainerRef = useRef<HTMLDivElement | null>(null);
+  const scrollTimeoutRef = useRef<number | null>(null);
 
-    useEffect(() => {
-      if (!isOpen || !logContainerRef.current) return;
+  const visibleLogs = useMemo(() => {
+    return debugLogs.slice(-200);
+  }, [debugLogs]);
 
+  useEffect(() => {
+    if (!isOpen || !logContainerRef.current) return;
+
+    if (scrollTimeoutRef.current) {
+      cancelAnimationFrame(scrollTimeoutRef.current);
+    }
+
+    scrollTimeoutRef.current = requestAnimationFrame(() => {
+      if (logContainerRef.current) {
+        logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+      }
+    });
+
+    return () => {
       if (scrollTimeoutRef.current) {
         cancelAnimationFrame(scrollTimeoutRef.current);
       }
+    };
+  }, [visibleLogs, isOpen]);
 
-      scrollTimeoutRef.current = requestAnimationFrame(() => {
-        if (logContainerRef.current) {
-          logContainerRef.current.scrollTop =
-            logContainerRef.current.scrollHeight;
-        }
-      });
+  if (!isOpen) return null;
 
-      return () => {
-        if (scrollTimeoutRef.current) {
-          cancelAnimationFrame(scrollTimeoutRef.current);
-        }
-      };
-    }, [visibleLogs, isOpen]);
-
-    if (!isOpen) return null;
-
-    return (
-      <div className="fixed inset-0 z-[100] bg-[#101010] font-mono flex flex-col">
-        <div className="px-6 py-4 border-b border-neutral-800 flex justify-between items-center">
-          <span className="relative uppercase text-neutral-300">
-            DEBUG
-            <HelpIcon helpText={HELP_TEXT.debugOverlay} />
-          </span>
-          <Button onClick={onClose} type="secondary">
-            CLOSE
-          </Button>
-        </div>
-        <div
-          ref={logContainerRef}
-          className="flex-1 overflow-y-auto px-6 py-4 text-neutral-300 text-[11px] leading-[1.5] [scrollbar-width:none] [-ms-overflow-style:none] hide-scrollbar"
-        >
-          {visibleLogs.length === 0 ? (
-            <div className="text-neutral-300/30">
-              No debug logs yet. External inputs, track selections, and method
-              triggers will appear here.
-            </div>
-          ) : (
-            visibleLogs.map((log, index) => (
-              <LogItem
-                key={`${index}-${log.slice(0, 20)}`}
-                log={log}
-                index={index}
-              />
-            ))
-          )}
-        </div>
+  return (
+    <div className="fixed inset-0 z-[100] bg-[#101010] font-mono flex flex-col">
+      <div className="px-6 py-4 border-b border-neutral-800 flex justify-between items-center">
+        <span className="relative uppercase text-neutral-300">
+          DEBUG
+          <HelpIcon helpText={HELP_TEXT.debugOverlay} />
+        </span>
+        <Button onClick={onClose} type="secondary">
+          CLOSE
+        </Button>
       </div>
-    );
-  }
-);
+      <div
+        ref={logContainerRef}
+        className="flex-1 overflow-y-auto px-6 py-4 text-neutral-300 text-[11px] leading-[1.5] [scrollbar-width:none] [-ms-overflow-style:none] hide-scrollbar"
+      >
+        {visibleLogs.length === 0 ? (
+          <div className="text-neutral-300/30">
+            No debug logs yet. External inputs, track selections, and method triggers will appear here.
+          </div>
+        ) : (
+          visibleLogs.map((log, index) => (
+            <LogItem key={`${index}-${log.slice(0, 20)}`} log={log} index={index} />
+          ))
+        )}
+      </div>
+    </div>
+  );
+});
 
 DebugOverlayModal.displayName = "DebugOverlayModal";
+

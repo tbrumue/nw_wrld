@@ -48,27 +48,27 @@ import {
   recordingStateAtom,
   useFlashingChannels,
 } from "./core/state.ts";
-import { Modal } from "./shared/Modal.jsx";
-import { ConfirmationModal } from "./modals/ConfirmationModal.jsx";
-import { DebugOverlayModal } from "./modals/DebugOverlayModal.jsx";
-import { EditSetModal } from "./modals/EditSetModal.jsx";
-import { CreateSetModal } from "./modals/CreateSetModal.jsx";
-import { CreateTrackModal } from "./modals/CreateTrackModal.jsx";
-import { EditTrackModal } from "./modals/EditTrackModal.jsx";
-import { EditChannelModal } from "./modals/EditChannelModal.jsx";
-import { AddModuleModal } from "./modals/AddModuleModal.jsx";
-import { SettingsModal } from "./modals/SettingsModal.jsx";
-import { InputMappingsModal } from "./modals/InputMappingsModal.jsx";
-import { SelectSetModal } from "./modals/SelectSetModal.jsx";
-import { SelectTrackModal } from "./modals/SelectTrackModal.jsx";
-import { ReleaseNotesModal } from "./modals/ReleaseNotesModal.jsx";
-import { MethodConfiguratorModal } from "./modals/MethodConfiguratorModal.jsx";
-import { TrackItem } from "./components/track/TrackItem.jsx";
-import { DashboardHeader } from "./components/DashboardHeader.jsx";
-import { DashboardFooter } from "./components/DashboardFooter.jsx";
+import { Modal } from "./shared/Modal";
+import { ConfirmationModal } from "./modals/ConfirmationModal";
+import { DebugOverlayModal } from "./modals/DebugOverlayModal";
+import { EditSetModal } from "./modals/EditSetModal";
+import { CreateSetModal } from "./modals/CreateSetModal";
+import { CreateTrackModal } from "./modals/CreateTrackModal";
+import { EditTrackModal } from "./modals/EditTrackModal";
+import { EditChannelModal } from "./modals/EditChannelModal";
+import { AddModuleModal } from "./modals/AddModuleModal";
+import { SettingsModal } from "./modals/SettingsModal";
+import { InputMappingsModal } from "./modals/InputMappingsModal";
+import { SelectSetModal } from "./modals/SelectSetModal";
+import { SelectTrackModal } from "./modals/SelectTrackModal";
+import { ReleaseNotesModal } from "./modals/ReleaseNotesModal";
+import { MethodConfiguratorModal } from "./modals/MethodConfiguratorModal";
+import { TrackItem } from "./components/track/TrackItem";
+import { DashboardHeader } from "./components/DashboardHeader";
+import { DashboardFooter } from "./components/DashboardFooter";
 import { useWorkspaceModules } from "./core/hooks/useWorkspaceModules.ts";
 import { useInputEvents } from "./core/hooks/useInputEvents";
-import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { getProjectDir } from "../shared/utils/projectDir.ts";
 
 // =========================

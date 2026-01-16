@@ -1,9 +1,24 @@
-import { Modal } from "../shared/Modal.jsx";
+import React from "react";
+import { Modal } from "../shared/Modal";
 import { ModalHeader } from "../components/ModalHeader";
 import { ModalFooter } from "../components/ModalFooter";
 import { Button } from "../components/Button";
 
-export const ConfirmationModal = ({ isOpen, onClose, message, onConfirm, type = "confirm" }) => {
+type ConfirmationModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  message: string | null;
+  onConfirm?: (() => void) | null;
+  type?: "confirm" | "alert";
+};
+
+export const ConfirmationModal = ({
+  isOpen,
+  onClose,
+  message,
+  onConfirm,
+  type = "confirm",
+}: ConfirmationModalProps) => {
   if (!isOpen) return null;
 
   const handleConfirm = () => {
@@ -34,3 +49,4 @@ export const ConfirmationModal = ({ isOpen, onClose, message, onConfirm, type = 
     </Modal>
   );
 };
+

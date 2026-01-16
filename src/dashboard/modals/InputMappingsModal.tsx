@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useAtom } from "jotai";
-import { Modal } from "../shared/Modal.jsx";
+import { Modal } from "../shared/Modal";
 import { ModalHeader } from "../components/ModalHeader";
 import { TextInput, RadioButton, Select } from "../components/FormInputs";
 import { userDataAtom } from "../core/state.ts";
@@ -8,12 +8,19 @@ import { updateUserData } from "../core/utils";
 import { DEFAULT_GLOBAL_MAPPINGS } from "../../shared/config/defaultConfig.ts";
 import { parsePitchClass, pitchClassToName } from "../../shared/midi/midiUtils.ts";
 
-export const InputMappingsModal = ({ isOpen, onClose }) => {
+type ActiveTab = "midi-pitchClass" | "midi-exactNote" | "osc";
+
+type InputMappingsModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+};
+
+export const InputMappingsModal = ({ isOpen, onClose }: InputMappingsModalProps) => {
   const [userData, setUserData] = useAtom(userDataAtom);
-  const [activeTab, setActiveTab] = useState("midi-pitchClass");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("midi-pitchClass");
   const wasOpenRef = useRef(false);
 
-  const isValidMidiNoteNumber = (n) =>
+  const isValidMidiNoteNumber = (n: unknown) =>
     typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 127;
 
   useEffect(() => {
@@ -24,19 +31,22 @@ export const InputMappingsModal = ({ isOpen, onClose }) => {
     if (wasOpenRef.current) return;
     wasOpenRef.current = true;
 
-    const inputType = userData?.config?.input?.type;
-    const noteMatchMode = userData?.config?.input?.noteMatchMode;
-    const nextTab =
+    const cfg = (userData as Record<string, unknown>).config as Record<string, unknown> | undefined;
+    const input = (cfg?.input as Record<string, unknown> | undefined) || undefined;
+    const inputType = input?.type;
+    const noteMatchMode = input?.noteMatchMode;
+    const nextTab: ActiveTab =
       inputType === "osc"
         ? "osc"
         : noteMatchMode === "exactNote"
           ? "midi-exactNote"
           : "midi-pitchClass";
     setActiveTab(nextTab);
-  }, [isOpen, userData?.config?.input?.type, userData?.config?.input?.noteMatchMode]);
+  }, [isOpen, userData]);
 
-  const trackMappings = userData?.config?.trackMappings || {};
-  const channelMappings = userData?.config?.channelMappings || {};
+  const cfg = (userData as Record<string, unknown>).config as Record<string, unknown> | undefined;
+  const trackMappings = (cfg?.trackMappings as Record<string, unknown>) || {};
+  const channelMappings = (cfg?.channelMappings as Record<string, unknown>) || {};
   const isMidi = activeTab.startsWith("midi-");
   const midiMode = activeTab === "midi-exactNote" ? "exactNote" : "pitchClass";
   const trackSlots = isMidi ? 12 : 10;
@@ -45,166 +55,155 @@ export const InputMappingsModal = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (!isOpen) return;
     if (!isMidi || midiMode !== "exactNote") return;
-    updateUserData(setUserData, (draft) => {
-      if (!draft.config) draft.config = {};
-      if (!draft.config.input) draft.config.input = {};
-      draft.config.input.noteMatchMode = "exactNote";
+    updateUserData(setUserData, (draft: unknown) => {
+      const d = draft as Record<string, unknown>;
+      if (!d.config) d.config = {};
+      const c = d.config as Record<string, unknown>;
+      if (!c.input) c.input = {};
+      (c.input as Record<string, unknown>).noteMatchMode = "exactNote";
 
-      if (!draft.config.trackMappings) {
-        draft.config.trackMappings = DEFAULT_GLOBAL_MAPPINGS.trackMappings;
+      if (!c.trackMappings) {
+        c.trackMappings = DEFAULT_GLOBAL_MAPPINGS.trackMappings;
       }
-      if (!draft.config.trackMappings.midi) {
-        draft.config.trackMappings.midi = {
-          pitchClass: {
-            ...DEFAULT_GLOBAL_MAPPINGS.trackMappings.midi.pitchClass,
-          },
-          exactNote: {
-            ...DEFAULT_GLOBAL_MAPPINGS.trackMappings.midi.exactNote,
-          },
+      const tm = c.trackMappings as Record<string, unknown>;
+      if (!tm.midi) {
+        tm.midi = {
+          pitchClass: { ...DEFAULT_GLOBAL_MAPPINGS.trackMappings.midi.pitchClass },
+          exactNote: { ...DEFAULT_GLOBAL_MAPPINGS.trackMappings.midi.exactNote },
         };
       }
-      if (!draft.config.trackMappings.midi.exactNote) {
-        draft.config.trackMappings.midi.exactNote = {
-          ...DEFAULT_GLOBAL_MAPPINGS.trackMappings.midi.exactNote,
-        };
+      const midi = tm.midi as Record<string, unknown>;
+      if (!midi.exactNote) {
+        midi.exactNote = { ...DEFAULT_GLOBAL_MAPPINGS.trackMappings.midi.exactNote };
       }
 
-      if (!draft.config.channelMappings) {
-        draft.config.channelMappings = DEFAULT_GLOBAL_MAPPINGS.channelMappings;
+      if (!c.channelMappings) {
+        c.channelMappings = DEFAULT_GLOBAL_MAPPINGS.channelMappings;
       }
-      if (!draft.config.channelMappings.midi) {
-        draft.config.channelMappings.midi = {
-          pitchClass: {
-            ...DEFAULT_GLOBAL_MAPPINGS.channelMappings.midi.pitchClass,
-          },
-          exactNote: {
-            ...DEFAULT_GLOBAL_MAPPINGS.channelMappings.midi.exactNote,
-          },
+      const cm = c.channelMappings as Record<string, unknown>;
+      if (!cm.midi) {
+        cm.midi = {
+          pitchClass: { ...DEFAULT_GLOBAL_MAPPINGS.channelMappings.midi.pitchClass },
+          exactNote: { ...DEFAULT_GLOBAL_MAPPINGS.channelMappings.midi.exactNote },
         };
       }
-      if (!draft.config.channelMappings.midi.exactNote) {
-        draft.config.channelMappings.midi.exactNote = {
-          ...DEFAULT_GLOBAL_MAPPINGS.channelMappings.midi.exactNote,
-        };
+      const cmMidi = cm.midi as Record<string, unknown>;
+      if (!cmMidi.exactNote) {
+        cmMidi.exactNote = { ...DEFAULT_GLOBAL_MAPPINGS.channelMappings.midi.exactNote };
       }
 
-      const makeCandidateList = (defaultsObj) => {
-        const defaults = [];
+      const makeCandidateList = (defaultsObj: Record<string, unknown> | null) => {
+        const defaults: number[] = [];
         for (let i = 1; i <= 12; i++) {
-          const v = defaultsObj?.[i];
+          const v = defaultsObj?.[String(i)];
           if (typeof v === "number") defaults.push(v);
         }
         const all = Array.from({ length: 128 }, (_, n) => n);
         return [...defaults, ...all];
       };
 
-      const normalizeMapping = (mappingObj, defaultsObj) => {
+      const normalizeMapping = (
+        mappingObj: Record<string, unknown> | null,
+        defaultsObj: Record<string, unknown> | null
+      ) => {
         const candidates = makeCandidateList(defaultsObj);
-        const used = new Set();
-        const next = { ...mappingObj };
+        const used = new Set<number>();
+        const next: Record<string, unknown> = { ...(mappingObj || {}) };
 
         for (let slot = 1; slot <= 12; slot++) {
-          const raw = next?.[slot];
+          const raw = next[String(slot)];
           const n = typeof raw === "number" ? raw : null;
           if (isValidMidiNoteNumber(n) && !used.has(n)) {
             used.add(n);
             continue;
           }
-          next[slot] = null;
+          next[String(slot)] = null;
         }
 
         for (let slot = 1; slot <= 12; slot++) {
-          if (isValidMidiNoteNumber(next[slot])) continue;
+          if (isValidMidiNoteNumber(next[String(slot)])) continue;
           const pick = candidates.find((n) => isValidMidiNoteNumber(n) && !used.has(n));
           if (pick === undefined) continue;
-          next[slot] = pick;
+          next[String(slot)] = pick;
           used.add(pick);
         }
 
         return next;
       };
 
-      draft.config.trackMappings.midi.exactNote = normalizeMapping(
-        draft.config.trackMappings.midi.exactNote,
-        DEFAULT_GLOBAL_MAPPINGS.trackMappings.midi.exactNote
+      const tmMidi = tm.midi as Record<string, unknown>;
+      tmMidi.exactNote = normalizeMapping(
+        tmMidi.exactNote as Record<string, unknown>,
+        DEFAULT_GLOBAL_MAPPINGS.trackMappings.midi.exactNote as unknown as Record<string, unknown>
       );
-      draft.config.channelMappings.midi.exactNote = normalizeMapping(
-        draft.config.channelMappings.midi.exactNote,
-        DEFAULT_GLOBAL_MAPPINGS.channelMappings.midi.exactNote
+      const cmMidi2 = (cm.midi as Record<string, unknown>);
+      cmMidi2.exactNote = normalizeMapping(
+        cmMidi2.exactNote as Record<string, unknown>,
+        DEFAULT_GLOBAL_MAPPINGS.channelMappings.midi.exactNote as unknown as Record<string, unknown>
       );
     });
   }, [isOpen, isMidi, midiMode, setUserData]);
 
-  const updateTrackMapping = (slot, value) => {
-    updateUserData(setUserData, (draft) => {
-      if (!draft.config) draft.config = {};
-      if (!draft.config.trackMappings) {
-        draft.config.trackMappings = DEFAULT_GLOBAL_MAPPINGS.trackMappings;
+  const updateTrackMapping = (slot: number, value: unknown) => {
+    updateUserData(setUserData, (draft: unknown) => {
+      const d = draft as Record<string, unknown>;
+      if (!d.config) d.config = {};
+      const c = d.config as Record<string, unknown>;
+      if (!c.trackMappings) {
+        c.trackMappings = DEFAULT_GLOBAL_MAPPINGS.trackMappings;
       }
+      const tm = c.trackMappings as Record<string, unknown>;
       if (isMidi) {
-        if (!draft.config.input) draft.config.input = {};
-        draft.config.input.noteMatchMode = midiMode;
-        const midi = draft.config.trackMappings.midi;
-        if (
-          !midi ||
-          typeof midi !== "object" ||
-          midi === null ||
-          !("pitchClass" in midi) ||
-          !("exactNote" in midi)
-        ) {
-          draft.config.trackMappings.midi = {
-            pitchClass: {
-              ...DEFAULT_GLOBAL_MAPPINGS.trackMappings.midi.pitchClass,
-            },
-            exactNote: {
-              ...DEFAULT_GLOBAL_MAPPINGS.trackMappings.midi.exactNote,
-            },
+        if (!c.input) c.input = {};
+        (c.input as Record<string, unknown>).noteMatchMode = midiMode;
+        const midi = tm.midi;
+        const midiObj = (midi && typeof midi === "object" && !Array.isArray(midi) ? (midi as Record<string, unknown>) : null) || null;
+        if (!midiObj || !("pitchClass" in midiObj) || !("exactNote" in midiObj)) {
+          tm.midi = {
+            pitchClass: { ...DEFAULT_GLOBAL_MAPPINGS.trackMappings.midi.pitchClass },
+            exactNote: { ...DEFAULT_GLOBAL_MAPPINGS.trackMappings.midi.exactNote },
           };
         }
-        if (!draft.config.trackMappings.midi[midiMode]) {
-          draft.config.trackMappings.midi[midiMode] = {};
+        const m = tm.midi as Record<string, unknown>;
+        if (!m[midiMode]) {
+          m[midiMode] = {};
         }
-        draft.config.trackMappings.midi[midiMode][slot] = value;
+        (m[midiMode] as Record<string, unknown>)[String(slot)] = value;
       } else {
-        if (!draft.config.trackMappings.osc) draft.config.trackMappings.osc = {};
-        draft.config.trackMappings.osc[slot] = value;
+        if (!tm.osc) tm.osc = {};
+        (tm.osc as Record<string, unknown>)[String(slot)] = value;
       }
     });
   };
 
-  const updateChannelMapping = (slot, value) => {
-    updateUserData(setUserData, (draft) => {
-      if (!draft.config) draft.config = {};
-      if (!draft.config.channelMappings) {
-        draft.config.channelMappings = DEFAULT_GLOBAL_MAPPINGS.channelMappings;
+  const updateChannelMapping = (slot: number, value: unknown) => {
+    updateUserData(setUserData, (draft: unknown) => {
+      const d = draft as Record<string, unknown>;
+      if (!d.config) d.config = {};
+      const c = d.config as Record<string, unknown>;
+      if (!c.channelMappings) {
+        c.channelMappings = DEFAULT_GLOBAL_MAPPINGS.channelMappings;
       }
+      const cm = c.channelMappings as Record<string, unknown>;
       if (isMidi) {
-        if (!draft.config.input) draft.config.input = {};
-        draft.config.input.noteMatchMode = midiMode;
-        const midi = draft.config.channelMappings.midi;
-        if (
-          !midi ||
-          typeof midi !== "object" ||
-          midi === null ||
-          !("pitchClass" in midi) ||
-          !("exactNote" in midi)
-        ) {
-          draft.config.channelMappings.midi = {
-            pitchClass: {
-              ...DEFAULT_GLOBAL_MAPPINGS.channelMappings.midi.pitchClass,
-            },
-            exactNote: {
-              ...DEFAULT_GLOBAL_MAPPINGS.channelMappings.midi.exactNote,
-            },
+        if (!c.input) c.input = {};
+        (c.input as Record<string, unknown>).noteMatchMode = midiMode;
+        const midi = cm.midi;
+        const midiObj = (midi && typeof midi === "object" && !Array.isArray(midi) ? (midi as Record<string, unknown>) : null) || null;
+        if (!midiObj || !("pitchClass" in midiObj) || !("exactNote" in midiObj)) {
+          cm.midi = {
+            pitchClass: { ...DEFAULT_GLOBAL_MAPPINGS.channelMappings.midi.pitchClass },
+            exactNote: { ...DEFAULT_GLOBAL_MAPPINGS.channelMappings.midi.exactNote },
           };
         }
-        if (!draft.config.channelMappings.midi[midiMode]) {
-          draft.config.channelMappings.midi[midiMode] = {};
+        const m = cm.midi as Record<string, unknown>;
+        if (!m[midiMode]) {
+          m[midiMode] = {};
         }
-        draft.config.channelMappings.midi[midiMode][slot] = value;
+        (m[midiMode] as Record<string, unknown>)[String(slot)] = value;
       } else {
-        if (!draft.config.channelMappings.osc) draft.config.channelMappings.osc = {};
-        draft.config.channelMappings.osc[slot] = value;
+        if (!cm.osc) cm.osc = {};
+        (cm.osc as Record<string, unknown>)[String(slot)] = value;
       }
     });
   };
@@ -290,9 +289,9 @@ export const InputMappingsModal = ({ isOpen, onClose }) => {
                     midiMode === "pitchClass" ? (
                       <Select
                         value={(() => {
-                          const current =
-                            channelMappings.midi?.pitchClass?.[slot] ??
-                            channelMappings.midi?.[slot];
+                          const cmMidi = (channelMappings as Record<string, unknown>).midi as Record<string, unknown> | undefined;
+                          const pitchMap = cmMidi?.pitchClass as Record<string, unknown> | undefined;
+                          const current = (pitchMap?.[String(slot)] ?? cmMidi?.[String(slot)]) as unknown;
                           if (typeof current === "number") return String(current);
                           const pc = parsePitchClass(current);
                           return pc === null ? "" : String(pc);
@@ -312,17 +311,19 @@ export const InputMappingsModal = ({ isOpen, onClose }) => {
                     ) : (
                       <Select
                         value={(() => {
-                          const current = channelMappings.midi?.exactNote?.[slot];
+                          const cmMidi = (channelMappings as Record<string, unknown>).midi as Record<string, unknown> | undefined;
+                          const exactMap = (cmMidi?.exactNote as Record<string, unknown> | undefined) || undefined;
+                          const current = exactMap?.[String(slot)];
                           return isValidMidiNoteNumber(current) ? String(current) : "0";
                         })()}
                         onChange={(e) => updateChannelMapping(slot, parseInt(e.target.value, 10))}
                         className="flex-1 text-[11px]"
                       >
                         {exactNoteOptions.map((opt) => {
-                          const selected = channelMappings.midi?.exactNote?.[slot];
-                          const usedByOtherSlot = Object.entries(
-                            channelMappings.midi?.exactNote || {}
-                          ).some(([s, v]) => {
+                          const cmMidi = (channelMappings as Record<string, unknown>).midi as Record<string, unknown> | undefined;
+                          const exactMap = (cmMidi?.exactNote as Record<string, unknown> | undefined) || undefined;
+                          const selected = exactMap?.[String(slot)];
+                          const usedByOtherSlot = Object.entries(exactMap || {}).some(([s, v]) => {
                             if (parseInt(s, 10) === slot) return false;
                             return v === opt.value;
                           });
@@ -337,7 +338,11 @@ export const InputMappingsModal = ({ isOpen, onClose }) => {
                     )
                   ) : (
                     <TextInput
-                      value={channelMappings.osc?.[slot] ?? ""}
+                      value={String(
+                        ((channelMappings as Record<string, unknown>).osc as Record<string, unknown> | undefined)?.[
+                          String(slot)
+                        ] ?? ""
+                      )}
                       onChange={(e) => updateChannelMapping(slot, e.target.value)}
                       className="flex-1 text-[11px]"
                       placeholder={`/ch/${slot}`}
@@ -360,8 +365,9 @@ export const InputMappingsModal = ({ isOpen, onClose }) => {
                     midiMode === "pitchClass" ? (
                       <Select
                         value={(() => {
-                          const current =
-                            trackMappings.midi?.pitchClass?.[slot] ?? trackMappings.midi?.[slot];
+                          const tmMidi = (trackMappings as Record<string, unknown>).midi as Record<string, unknown> | undefined;
+                          const pitchMap = tmMidi?.pitchClass as Record<string, unknown> | undefined;
+                          const current = pitchMap?.[String(slot)] ?? tmMidi?.[String(slot)];
                           if (typeof current === "number") return String(current);
                           const pc = parsePitchClass(current);
                           return pc === null ? "" : String(pc);
@@ -381,17 +387,19 @@ export const InputMappingsModal = ({ isOpen, onClose }) => {
                     ) : (
                       <Select
                         value={(() => {
-                          const current = trackMappings.midi?.exactNote?.[slot];
+                          const tmMidi = (trackMappings as Record<string, unknown>).midi as Record<string, unknown> | undefined;
+                          const exactMap = tmMidi?.exactNote as Record<string, unknown> | undefined;
+                          const current = exactMap?.[String(slot)];
                           return isValidMidiNoteNumber(current) ? String(current) : "0";
                         })()}
                         onChange={(e) => updateTrackMapping(slot, parseInt(e.target.value, 10))}
                         className="flex-1 text-[11px]"
                       >
                         {exactNoteOptions.map((opt) => {
-                          const selected = trackMappings.midi?.exactNote?.[slot];
-                          const usedByOtherSlot = Object.entries(
-                            trackMappings.midi?.exactNote || {}
-                          ).some(([s, v]) => {
+                          const tmMidi = (trackMappings as Record<string, unknown>).midi as Record<string, unknown> | undefined;
+                          const exactMap = (tmMidi?.exactNote as Record<string, unknown> | undefined) || undefined;
+                          const selected = exactMap?.[String(slot)];
+                          const usedByOtherSlot = Object.entries(exactMap || {}).some(([s, v]) => {
                             if (parseInt(s, 10) === slot) return false;
                             return v === opt.value;
                           });
@@ -406,7 +414,11 @@ export const InputMappingsModal = ({ isOpen, onClose }) => {
                     )
                   ) : (
                     <TextInput
-                      value={trackMappings.osc?.[slot] ?? ""}
+                      value={String(
+                        ((trackMappings as Record<string, unknown>).osc as Record<string, unknown> | undefined)?.[
+                          String(slot)
+                        ] ?? ""
+                      )}
                       onChange={(e) => updateTrackMapping(slot, e.target.value)}
                       className="flex-1 text-[11px]"
                       placeholder={`/track/${slot}`}
@@ -425,3 +437,4 @@ export const InputMappingsModal = ({ isOpen, onClose }) => {
     </Modal>
   );
 };
+

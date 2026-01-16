@@ -1,21 +1,37 @@
 import { useState } from "react";
 import { FaPlus, FaEdit, FaTrash } from "react-icons/fa";
-import { Modal } from "../shared/Modal.jsx";
-import { SortableWrapper } from "../shared/SortableWrapper.jsx";
-import { SortableList, arrayMove } from "../shared/SortableList.jsx";
+import { Modal } from "../shared/Modal";
+import { SortableWrapper } from "../shared/SortableWrapper";
+import { SortableList, arrayMove } from "../shared/SortableList";
 import { ModalHeader } from "../components/ModalHeader";
 import { ModalFooter } from "../components/ModalFooter";
 import { Button } from "../components/Button";
 import { RadioButton, Label } from "../components/FormInputs";
 import { updateActiveSet } from "../core/utils";
 import { getActiveSetTracks, getActiveSet } from "../../shared/utils/setUtils.ts";
-import { EditTrackModal } from "./EditTrackModal.jsx";
+import { EditTrackModal } from "./EditTrackModal";
 import { deleteRecordingsForTracks } from "../../shared/json/recordingUtils.ts";
 import {
   parsePitchClass,
   pitchClassToName,
   resolveTrackTrigger,
 } from "../../shared/midi/midiUtils.ts";
+
+type Track = {
+  id: string | number;
+  name: string;
+};
+
+type SortableTrackItemProps = {
+  track: Track;
+  trackIndex: number;
+  activeTrackId: string | number | null;
+  inputType: string;
+  globalMappings: Record<string, unknown>;
+  onTrackSelect: (id: string | number) => void;
+  onEdit: (index: number) => void;
+  onDelete: (index: number) => void;
+};
 
 const SortableTrackItem = ({
   track,
@@ -26,7 +42,7 @@ const SortableTrackItem = ({
   onTrackSelect,
   onEdit,
   onDelete,
-}) => {
+}: SortableTrackItemProps) => {
   return (
     <SortableWrapper id={track.id}>
       {({ dragHandleProps, isDragging }) => (
@@ -54,8 +70,11 @@ const SortableTrackItem = ({
                 rawTrigger !== null &&
                 rawTrigger !== undefined
                   ? (() => {
+                      const inputUnknown = (globalMappings as Record<string, unknown>)?.input;
                       const noteMatchMode =
-                        globalMappings?.input?.noteMatchMode === "exactNote"
+                        typeof inputUnknown === "object" &&
+                        inputUnknown !== null &&
+                        (inputUnknown as Record<string, unknown>)?.noteMatchMode === "exactNote"
                           ? "exactNote"
                           : "pitchClass";
                       if (noteMatchMode === "exactNote") return String(rawTrigger);
@@ -90,6 +109,28 @@ const SortableTrackItem = ({
   );
 };
 
+type UserData = {
+  config?: {
+    input?: Record<string, unknown>;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+type SelectTrackModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  userData: UserData;
+  setUserData: (updater: unknown) => void;
+  activeTrackId: string | number | null;
+  setActiveTrackId: (id: string | number | null) => void;
+  activeSetId: string | null;
+  recordingData: Record<string, unknown>;
+  setRecordingData: (updater: (prev: Record<string, unknown>) => Record<string, unknown>) => void;
+  onCreateTrack: () => void;
+  onConfirmDelete: (message: string, onConfirm: () => void) => void;
+};
+
 export const SelectTrackModal = ({
   isOpen,
   onClose,
@@ -102,26 +143,29 @@ export const SelectTrackModal = ({
   setRecordingData,
   onCreateTrack,
   onConfirmDelete,
-}) => {
-  const [editingTrackIndex, setEditingTrackIndex] = useState(null);
+}: SelectTrackModalProps) => {
+  const [editingTrackIndex, setEditingTrackIndex] = useState<number | null>(null);
 
   const tracks = getActiveSetTracks(userData, activeSetId);
   const activeSet = getActiveSet(userData, activeSetId);
   const inputType = userData?.config?.input?.type || "midi";
   const globalMappings = userData?.config || {};
 
-  const handleTrackSelect = (trackId) => {
+  const handleTrackSelect = (trackId: string | number) => {
     setActiveTrackId(trackId);
     onClose();
   };
 
-  const handleDeleteTrack = (trackIndex) => {
+  const handleDeleteTrack = (trackIndex: number) => {
     const track = tracks[trackIndex];
     if (!track) return;
 
     onConfirmDelete(`Are you sure you want to delete track "${track.name}"?`, () => {
       updateActiveSet(setUserData, activeSetId, (activeSet) => {
-        activeSet.tracks.splice(trackIndex, 1);
+        const tracksUnknown = (activeSet as Record<string, unknown>).tracks;
+        if (Array.isArray(tracksUnknown)) {
+          tracksUnknown.splice(trackIndex, 1);
+        }
       });
 
       setRecordingData((prev) => deleteRecordingsForTracks(prev, [track.id]));
@@ -152,9 +196,16 @@ export const SelectTrackModal = ({
             ) : (
               <SortableList
                 items={tracks}
-                onReorder={(oldIndex, newIndex) => {
+                onReorder={(oldIndex: number, newIndex: number) => {
                   updateActiveSet(setUserData, activeSetId, (activeSet) => {
-                    activeSet.tracks = arrayMove(activeSet.tracks, oldIndex, newIndex);
+                    const tracksUnknown = (activeSet as Record<string, unknown>).tracks;
+                    if (Array.isArray(tracksUnknown)) {
+                      (activeSet as Record<string, unknown>).tracks = arrayMove(
+                        tracksUnknown,
+                        oldIndex,
+                        newIndex
+                      );
+                    }
                   });
                 }}
               >
@@ -165,7 +216,7 @@ export const SelectTrackModal = ({
                       track={track}
                       trackIndex={trackIndex}
                       activeTrackId={activeTrackId}
-                      inputType={inputType}
+                      inputType={String(inputType)}
                       globalMappings={globalMappings}
                       onTrackSelect={handleTrackSelect}
                       onEdit={setEditingTrackIndex}

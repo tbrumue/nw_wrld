@@ -198,7 +198,8 @@ export const Label = ({
   style,
   children,
   ...props
-}: HTMLAttributes<HTMLDivElement> & {
+}: Omit<HTMLAttributes<HTMLDivElement>, "htmlFor"> & {
+  htmlFor?: string;
   style?: CSSProperties;
   children?: ReactNode;
 }) => {

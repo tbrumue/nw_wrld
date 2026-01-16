@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Modal } from "../shared/Modal.jsx";
+import React, { useEffect, useMemo, useState } from "react";
+import { Modal } from "../shared/Modal";
 import { ModalHeader } from "../components/ModalHeader";
 import { ModalFooter } from "../components/ModalFooter";
 import { Button } from "../components/Button";
@@ -8,7 +8,9 @@ const REQUEST_TIMEOUT_MS = 6000;
 
 const getBridge = () => globalThis.nwWrldBridge;
 
-const parseRepoFromUrl = (repoUrl) => {
+type RepoInfo = { owner: string; repo: string };
+
+const parseRepoFromUrl = (repoUrl: unknown): RepoInfo | null => {
   const raw = String(repoUrl || "").trim();
   if (!raw) return null;
   const normalized = raw.replace(/^git\+/i, "");
@@ -27,7 +29,7 @@ const parseRepoFromUrl = (repoUrl) => {
   }
 };
 
-const formatDate = (iso) => {
+const formatDate = (iso: unknown) => {
   const raw = String(iso || "").trim();
   if (!raw) return "";
   const d = new Date(raw);
@@ -35,7 +37,7 @@ const formatDate = (iso) => {
   return d.toLocaleString();
 };
 
-const openExternal = (url) => {
+const openExternal = (url: unknown) => {
   const u = String(url || "").trim();
   if (!u) return;
   const bridge = getBridge();
@@ -48,7 +50,24 @@ const openExternal = (url) => {
   } catch {}
 };
 
-export const ReleaseNotesModal = ({ isOpen, onClose }) => {
+type Release = {
+  id: string;
+  tag: string;
+  name: string;
+  url: string;
+  prerelease: boolean;
+  publishedAt: string;
+  body: string;
+};
+
+type Status = "idle" | "loading" | "ready" | "error";
+
+type ReleaseNotesModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+};
+
+export const ReleaseNotesModal = ({ isOpen, onClose }: ReleaseNotesModalProps) => {
   const repoInfo = useMemo(() => {
     const bridge = getBridge();
     const repoUrl =
@@ -63,8 +82,8 @@ export const ReleaseNotesModal = ({ isOpen, onClose }) => {
     return bridge?.app?.getVersion ? bridge.app.getVersion() : null;
   }, []);
 
-  const [status, setStatus] = useState("idle");
-  const [releases, setReleases] = useState([]);
+  const [status, setStatus] = useState<Status>("idle");
+  const [releases, setReleases] = useState<Release[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -87,19 +106,22 @@ export const ReleaseNotesModal = ({ isOpen, onClose }) => {
           signal: controller.signal,
         });
         if (!res.ok) throw new Error(`HTTP_${res.status}`);
-        const json = await res.json();
+        const json: unknown = await res.json();
         const list = Array.isArray(json) ? json : [];
-        const cleaned = list
-          .filter((r) => r && r.draft !== true)
-          .map((r) => ({
-            id: r.id,
-            tag: r.tag_name ? String(r.tag_name) : "",
-            name: r.name ? String(r.name) : "",
-            url: r.html_url ? String(r.html_url) : "",
-            prerelease: r.prerelease === true,
-            publishedAt: r.published_at ? String(r.published_at) : "",
-            body: r.body ? String(r.body) : "",
-          }))
+        const cleaned: Release[] = list
+          .filter((r) => r && (r as Record<string, unknown>).draft !== true)
+          .map((r) => {
+            const rr = r as Record<string, unknown>;
+            return {
+              id: String(rr.id ?? ""),
+              tag: rr.tag_name ? String(rr.tag_name) : "",
+              name: rr.name ? String(rr.name) : "",
+              url: rr.html_url ? String(rr.html_url) : "",
+              prerelease: rr.prerelease === true,
+              publishedAt: rr.published_at ? String(rr.published_at) : "",
+              body: rr.body ? String(rr.body) : "",
+            };
+          })
           .filter((r) => r.tag && r.url);
 
         if (cancelled) return;
@@ -124,9 +146,7 @@ export const ReleaseNotesModal = ({ isOpen, onClose }) => {
   }, [isOpen, repoInfo?.owner, repoInfo?.repo]);
 
   const releasesPageUrl =
-    repoInfo?.owner && repoInfo?.repo
-      ? `https://github.com/${repoInfo.owner}/${repoInfo.repo}/releases`
-      : null;
+    repoInfo?.owner && repoInfo?.repo ? `https://github.com/${repoInfo.owner}/${repoInfo.repo}/releases` : null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="large">
@@ -134,55 +154,35 @@ export const ReleaseNotesModal = ({ isOpen, onClose }) => {
 
       <div className="flex flex-col gap-4">
         <div className="text-neutral-300/70">
-          Current version:{" "}
-          <span className="text-neutral-300">
-            {currentVersion || "unknown"}
-          </span>
+          Current version: <span className="text-neutral-300">{currentVersion || "unknown"}</span>
         </div>
 
         {status === "loading" ? (
-          <div className="text-neutral-300/30 text-[11px]">
-            Loading releases…
-          </div>
+          <div className="text-neutral-300/30 text-[11px]">Loading releases…</div>
         ) : status === "error" ? (
-          <div className="text-neutral-300/30 text-[11px]">
-            Failed to load releases.
-          </div>
+          <div className="text-neutral-300/30 text-[11px]">Failed to load releases.</div>
         ) : releases.length === 0 ? (
-          <div className="text-neutral-300/30 text-[11px]">
-            No releases found.
-          </div>
+          <div className="text-neutral-300/30 text-[11px]">No releases found.</div>
         ) : (
           <div className="flex flex-col gap-3">
             {releases.map((r) => (
-              <div
-                key={r.id}
-                className="border border-neutral-800 bg-[#101010] p-4"
-              >
+              <div key={r.id} className="border border-neutral-800 bg-[#101010] p-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex flex-col gap-0.5">
                     <div className="text-neutral-300">
-                      <span className="opacity-50">
-                        {r.prerelease ? "[PRE] " : ""}
-                      </span>
+                      <span className="opacity-50">{r.prerelease ? "[PRE] " : ""}</span>
                       {r.tag}
-                      {r.name ? (
-                        <span className="opacity-50"> — {r.name}</span>
-                      ) : null}
+                      {r.name ? <span className="opacity-50"> — {r.name}</span> : null}
                     </div>
                     <div className="text-[10px] text-neutral-500">
-                      {r.publishedAt
-                        ? `Published: ${formatDate(r.publishedAt)}`
-                        : ""}
+                      {r.publishedAt ? `Published: ${formatDate(r.publishedAt)}` : ""}
                     </div>
                   </div>
                   <Button onClick={() => openExternal(r.url)}>OPEN</Button>
                 </div>
 
                 {r.body ? (
-                  <div className="mt-3 whitespace-pre-wrap text-neutral-300/70">
-                    {r.body}
-                  </div>
+                  <div className="mt-3 whitespace-pre-wrap text-neutral-300/70">{r.body}</div>
                 ) : (
                   <div className="mt-3 text-neutral-300/30">No notes.</div>
                 )}
@@ -193,12 +193,9 @@ export const ReleaseNotesModal = ({ isOpen, onClose }) => {
       </div>
 
       <ModalFooter>
-        {releasesPageUrl ? (
-          <Button onClick={() => openExternal(releasesPageUrl)}>
-            OPEN RELEASES PAGE
-          </Button>
-        ) : null}
+        {releasesPageUrl ? <Button onClick={() => openExternal(releasesPageUrl)}>OPEN RELEASES PAGE</Button> : null}
       </ModalFooter>
     </Modal>
   );
 };
+

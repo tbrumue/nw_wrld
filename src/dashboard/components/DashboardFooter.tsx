@@ -4,6 +4,34 @@ import { recordingDataAtom } from "../core/state.ts";
 import { Checkbox } from "./FormInputs";
 import { Button } from "./Button";
 
+type InputConfig = {
+  type?: string;
+  port?: number;
+  deviceName?: string;
+};
+
+type InputStatus = {
+  status: string;
+  message?: string;
+  config?: { input?: InputConfig } | null;
+};
+
+type DashboardConfig = { sequencerMode?: boolean } & Record<string, unknown>;
+
+type DashboardFooterProps = {
+  track: unknown | null;
+  isPlaying: boolean;
+  onPlayPause: () => void;
+  onStop: () => void;
+  inputStatus: InputStatus;
+  inputConfig: InputConfig | null;
+  onSettingsClick: () => void;
+  config: DashboardConfig | null;
+  isMuted: boolean;
+  onMuteChange: (next: boolean) => void;
+  isProjectorReady: boolean;
+};
+
 export const DashboardFooter = ({
   track,
   isPlaying,
@@ -16,8 +44,8 @@ export const DashboardFooter = ({
   isMuted,
   onMuteChange,
   isProjectorReady,
-}) => {
-  const [recordingData] = useAtom(recordingDataAtom);
+}: DashboardFooterProps) => {
+  const [_recordingData] = useAtom(recordingDataAtom);
 
   const getStatusColor = () => {
     switch (inputStatus.status) {
@@ -50,12 +78,12 @@ export const DashboardFooter = ({
       return inputStatus.message;
     }
 
-    if (inputStatus?.config?.input) {
-      const activeInput = inputStatus.config.input;
-      if (activeInput.type === "osc") {
-        return `Listening on Port ${activeInput.port || 8000}`;
-      } else if (activeInput.type === "midi") {
-        return `MIDI: ${activeInput.deviceName || "Not configured"}`;
+    const statusInput = inputStatus?.config?.input || null;
+    if (statusInput && statusInput.type) {
+      if (statusInput.type === "osc") {
+        return `Listening on Port ${statusInput.port || 8000}`;
+      } else if (statusInput.type === "midi") {
+        return `MIDI: ${statusInput.deviceName || "Not configured"}`;
       }
     }
 
@@ -72,9 +100,7 @@ export const DashboardFooter = ({
     return (
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#101010] border-t border-neutral-800 px-6 py-4">
         <div className="w-full flex justify-start gap-4 items-center">
-          <div className="text-neutral-300/30 text-[11px]">
-            No track selected
-          </div>
+          <div className="text-neutral-300/30 text-[11px]">No track selected</div>
           {!config?.sequencerMode && (
             <button
               onClick={onSettingsClick}
@@ -124,9 +150,7 @@ export const DashboardFooter = ({
                 as="button"
                 data-testid="sequencer-play-toggle"
               >
-                <span className="relative inline-block">
-                  {isPlaying ? "STOP" : "PLAY"}
-                </span>
+                <span className="relative inline-block">{isPlaying ? "STOP" : "PLAY"}</span>
               </Button>
               <label
                 className="flex items-center gap-2 cursor-pointer text-[11px] text-neutral-300 font-mono"
@@ -134,15 +158,12 @@ export const DashboardFooter = ({
                   if (e.detail === 0) return;
                   const input = e.currentTarget.querySelector(
                     'input[type="checkbox"]'
-                  );
+                  ) as HTMLInputElement | null;
                   if (!input) return;
                   setTimeout(() => input.blur(), 0);
                 }}
               >
-                <Checkbox
-                  checked={isMuted}
-                  onChange={(e) => onMuteChange(e.target.checked)}
-                />
+                <Checkbox checked={isMuted} onChange={(e) => onMuteChange(e.target.checked)} />
                 <span>Mute</span>
               </label>
             </>
@@ -161,3 +182,4 @@ export const DashboardFooter = ({
     </div>
   );
 };
+

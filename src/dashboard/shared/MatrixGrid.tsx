@@ -1,12 +1,29 @@
 import { useState, useEffect } from "react";
 import { NumberInput } from "../components/FormInputs";
 
-export const MatrixGrid = ({ value, onChange }) => {
-  const normalizeValue = (val) => {
+type MatrixGridValueObject = {
+  rows?: number;
+  cols?: number;
+  excludedCells?: string[];
+};
+
+export type MatrixGridValue = MatrixGridValueObject | [number, number] | null | undefined;
+
+type MatrixGridNormalized = {
+  rows: number;
+  cols: number;
+  excludedCells: string[];
+};
+
+type MatrixGridProps = {
+  value: MatrixGridValue;
+  onChange: (next: MatrixGridNormalized) => void;
+};
+
+export const MatrixGrid = ({ value, onChange }: MatrixGridProps) => {
+  const normalizeValue = (val: MatrixGridValue): MatrixGridNormalized => {
     if (Array.isArray(val)) {
-      console.warn(
-        "[MatrixGrid] Legacy array format detected, converting to object format"
-      );
+      console.warn("[MatrixGrid] Legacy array format detected, converting to object format");
       return { rows: val[0] || 1, cols: val[1] || 1, excludedCells: [] };
     }
     return {
@@ -28,8 +45,8 @@ export const MatrixGrid = ({ value, onChange }) => {
     setExcludedCells(updated.excludedCells);
   }, [value]);
 
-  const handleRowsChange = (newRows) => {
-    const numRows = Math.max(1, Math.min(5, parseInt(newRows) || 1));
+  const handleRowsChange = (newRows: string | number) => {
+    const numRows = Math.max(1, Math.min(5, parseInt(String(newRows)) || 1));
     const oldRows = rows;
     setRows(numRows);
 
@@ -53,8 +70,8 @@ export const MatrixGrid = ({ value, onChange }) => {
     onChange({ rows: numRows, cols, excludedCells: updated });
   };
 
-  const handleColsChange = (newCols) => {
-    const numCols = Math.max(1, Math.min(5, parseInt(newCols) || 1));
+  const handleColsChange = (newCols: string | number) => {
+    const numCols = Math.max(1, Math.min(5, parseInt(String(newCols)) || 1));
     const oldCols = cols;
     setCols(numCols);
 
@@ -78,7 +95,7 @@ export const MatrixGrid = ({ value, onChange }) => {
     onChange({ rows, cols: numCols, excludedCells: updated });
   };
 
-  const handleCellClick = (row, col) => {
+  const handleCellClick = (row: number, col: number) => {
     const cellKey = `${row}-${col}`;
     const isExcluded = excludedCells.includes(cellKey);
     const newExcludedCells = isExcluded
@@ -194,3 +211,4 @@ export const MatrixGrid = ({ value, onChange }) => {
     </div>
   );
 };
+

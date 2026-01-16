@@ -1,10 +1,8 @@
-import { ComponentType, memo, useMemo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useMemo, useCallback, useEffect, useRef, useState } from "react";
 import { FaCode, FaDice, FaLock, FaPlay } from "react-icons/fa";
 import { TextInput, NumberInput, ColorInput, Select, Checkbox } from "./FormInputs";
-import { MatrixGrid } from "../shared/MatrixGrid.jsx";
-import { AssetOptionInput as AssetOptionInputRaw } from "./AssetOptionInput.jsx";
-
-const AssetOptionInput = AssetOptionInputRaw as unknown as ComponentType<Record<string, unknown>>;
+import { MatrixGrid } from "../shared/MatrixGrid";
+import { AssetOptionInput } from "./AssetOptionInput";
 
 const CUSTOM_VALUE = "__nw_wrld_custom__";
 

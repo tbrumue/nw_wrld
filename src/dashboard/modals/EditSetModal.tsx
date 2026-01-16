@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useAtom } from "jotai";
-import { Modal } from "../shared/Modal.jsx";
+import { Modal } from "../shared/Modal";
 import { ModalHeader } from "../components/ModalHeader";
 import { ModalFooter } from "../components/ModalFooter";
 import { Button } from "../components/Button";
@@ -9,20 +9,36 @@ import { userDataAtom } from "../core/state.ts";
 import { updateUserData } from "../core/utils";
 import { useNameValidation } from "../core/hooks/useNameValidation";
 
-export const EditSetModal = ({ isOpen, onClose, setId, onAlert }) => {
+type EditSetModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  setId: string | null;
+  onAlert?: ((message: string) => void) | null;
+};
+
+type SetLike = {
+  id?: unknown;
+  name?: unknown;
+};
+
+export const EditSetModal = ({ isOpen, onClose, setId, onAlert }: EditSetModalProps) => {
   const [userData, setUserData] = useAtom(userDataAtom);
   const [setName, setSetName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const sets = userData.sets || [];
-  const currentSet = sets.find((s) => s.id === setId);
+  const sets = Array.isArray(userData.sets)
+    ? (userData.sets as Array<Record<string, unknown>>)
+    : [];
+  const currentSet = (sets as unknown[]).find((s) => (s as SetLike | null)?.id === setId) as
+    | SetLike
+    | undefined;
 
   const { validate } = useNameValidation(sets, setId);
   const validation = validate(setName);
 
   useEffect(() => {
     if (isOpen && currentSet) {
-      setSetName(currentSet.name);
+      setSetName(typeof currentSet.name === "string" ? currentSet.name : "");
     } else if (!isOpen) {
       setSetName("");
     }
@@ -36,8 +52,12 @@ export const EditSetModal = ({ isOpen, onClose, setId, onAlert }) => {
     if (!canSubmit) return;
     setSubmitting(true);
     try {
-      updateUserData(setUserData, (draft) => {
-        const set = draft.sets.find((s) => s.id === setId);
+      updateUserData(setUserData, (draft: unknown) => {
+        const d = draft as Record<string, unknown>;
+        const draftSets = Array.isArray(d.sets) ? (d.sets as unknown[]) : [];
+        const set = draftSets.find((s) => (s as SetLike | null)?.id === setId) as
+          | (SetLike & Record<string, unknown>)
+          | undefined;
         if (set) {
           set.name = setName.trim();
         }

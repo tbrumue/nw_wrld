@@ -1,5 +1,5 @@
-import { memo, useState, useRef, useEffect, useCallback } from "react";
-import { Modal } from "../shared/Modal.jsx";
+import { memo, useState, useRef, useEffect, useCallback, type ChangeEvent, type KeyboardEvent } from "react";
+import { Modal } from "../shared/Modal";
 import { ModalHeader } from "../components/ModalHeader";
 import { Button } from "../components/Button";
 import {
@@ -12,17 +12,18 @@ import {
 import { HelpIcon } from "../components/HelpIcon";
 import { HELP_TEXT } from "../../shared/helpText.ts";
 
-const isValidHexColor = (value) => /^#([0-9A-F]{3}){1,2}$/i.test(value);
+const isValidHexColor = (value: string): boolean => /^#([0-9A-F]{3}){1,2}$/i.test(value);
 
-const clampMidiChannel = (value, fallback = 1) => {
+const clampMidiChannel = (value: unknown, fallback = 1): number => {
   const n = parseInt(String(value ?? ""), 10);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(1, Math.min(16, n));
 };
 
-const normalizeMidiNoteMatchMode = (value) => (value === "exactNote" ? "exactNote" : "pitchClass");
+const normalizeMidiNoteMatchMode = (value: unknown): "pitchClass" | "exactNote" =>
+  value === "exactNote" ? "exactNote" : "pitchClass";
 
-const normalizeHexColor = (value) => {
+const normalizeHexColor = (value: unknown): string | null => {
   const raw = String(value || "").trim();
   if (!raw) return null;
   const withHash = raw.startsWith("#") ? raw : `#${raw}`;
@@ -37,8 +38,20 @@ const normalizeHexColor = (value) => {
   return hex;
 };
 
-const DraftIntInput = memo(({ value, fallback, onCommit, ...props }) => {
-  const [draft, setDraft] = useState(null);
+type DraftIntInputProps = {
+  value: number;
+  fallback: number;
+  onCommit: (value: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  className?: string;
+  style?: React.CSSProperties;
+  "data-testid"?: string;
+};
+
+const DraftIntInput = memo(({ value, fallback, onCommit, ...props }: DraftIntInputProps) => {
+  const [draft, setDraft] = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState(false);
   const skipCommitRef = useRef(false);
 
@@ -49,7 +62,7 @@ const DraftIntInput = memo(({ value, fallback, onCommit, ...props }) => {
   const displayed = draft !== null ? draft : String(value ?? "");
 
   const commitIfValid = useCallback(
-    (raw) => {
+    (raw: string) => {
       const s = String(raw);
       const isIntermediate =
         s === "" || s === "-" || s === "." || s === "-." || s.endsWith(".") || /e[+-]?$/i.test(s);
@@ -87,7 +100,7 @@ const DraftIntInput = memo(({ value, fallback, onCommit, ...props }) => {
         setIsFocused(true);
         setDraft(String(value ?? ""));
       }}
-      onChange={(e) => {
+      onChange={(e: ChangeEvent<HTMLInputElement>) => {
         const next = e.target.value;
         setDraft(next);
         commitIfValid(next);
@@ -100,7 +113,7 @@ const DraftIntInput = memo(({ value, fallback, onCommit, ...props }) => {
         }
         commitOnBlur();
       }}
-      onKeyDown={(e) => {
+      onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter") e.currentTarget.blur();
         if (e.key === "Escape") {
           skipCommitRef.current = true;
@@ -112,7 +125,12 @@ const DraftIntInput = memo(({ value, fallback, onCommit, ...props }) => {
   );
 });
 
-const UserColors = ({ config, updateConfig }) => {
+type UserColorsProps = {
+  config: { userColors?: string[] };
+  updateConfig: (updates: { userColors: string[] }) => void;
+};
+
+const UserColors = ({ config, updateConfig }: UserColorsProps) => {
   const userColors = Array.isArray(config?.userColors) ? config.userColors : [];
   const [draft, setDraft] = useState(
     userColors[0] && isValidHexColor(userColors[0]) ? userColors[0] : "#ffffff"
@@ -131,7 +149,7 @@ const UserColors = ({ config, updateConfig }) => {
   }, [draftText, updateConfig, userColors]);
 
   const removeColor = useCallback(
-    (hex) => {
+    (hex: string) => {
       const safe = String(hex || "").trim();
       if (!safe) return;
       const next = userColors.filter((c) => c !== safe);
@@ -147,14 +165,14 @@ const UserColors = ({ config, updateConfig }) => {
         <div className="flex items-center gap-2">
           <ColorInput
             value={draft}
-            onChange={(e) => {
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
               const next = normalizeHexColor(e.target.value) || "#ffffff";
               setDraft(next);
             }}
           />
           <TextInput
             value={draftText}
-            onChange={(e) => setDraftText(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setDraftText(e.target.value)}
             className="w-24 py-0.5"
           />
           <Button onClick={addColor} className="flex-1">
@@ -193,7 +211,34 @@ const UserColors = ({ config, updateConfig }) => {
   );
 };
 
-const ProjectorSettings = ({ aspectRatio, setAspectRatio, bgColor, setBgColor, settings }) => {
+type AspectRatio = {
+  id: string;
+  label: string;
+};
+
+type BackgroundColor = {
+  id: string;
+  label: string;
+};
+
+type ProjectorSettingsProps = {
+  aspectRatio: string;
+  setAspectRatio: (ratio: string) => void;
+  bgColor: string;
+  setBgColor: (color: string) => void;
+  settings: {
+    aspectRatios: AspectRatio[];
+    backgroundColors: BackgroundColor[];
+  };
+};
+
+const ProjectorSettings = ({
+  aspectRatio,
+  setAspectRatio,
+  bgColor,
+  setBgColor,
+  settings,
+}: ProjectorSettingsProps) => {
   return (
     <div className="flex flex-col gap-3 font-mono">
       <div className="pl-12">
@@ -204,7 +249,7 @@ const ProjectorSettings = ({ aspectRatio, setAspectRatio, bgColor, setBgColor, s
         <Select
           id="aspectRatio"
           value={aspectRatio}
-          onChange={(e) => setAspectRatio(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLSelectElement>) => setAspectRatio(e.target.value)}
           className="py-1 w-full"
         >
           {settings.aspectRatios.map((ratio) => (
@@ -220,7 +265,7 @@ const ProjectorSettings = ({ aspectRatio, setAspectRatio, bgColor, setBgColor, s
         <Select
           id="bgColor"
           value={bgColor}
-          onChange={(e) => setBgColor(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLSelectElement>) => setBgColor(e.target.value)}
           className="py-1 w-full"
         >
           {settings.backgroundColors.map((color) => (
@@ -232,6 +277,48 @@ const ProjectorSettings = ({ aspectRatio, setAspectRatio, bgColor, setBgColor, s
       </div>
     </div>
   );
+};
+
+type MidiDevice = {
+  id: string;
+  name: string;
+};
+
+type InputConfig = {
+  type?: string;
+  deviceId?: string;
+  deviceName?: string;
+  methodTriggerChannel?: number;
+  trackSelectionChannel?: number;
+  noteMatchMode?: string;
+  port?: number;
+};
+
+type Config = {
+  sequencerMode?: boolean;
+  sequencerBpm?: number;
+  userColors?: string[];
+};
+
+type SettingsModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  aspectRatio: string;
+  setAspectRatio: (ratio: string) => void;
+  bgColor: string;
+  setBgColor: (color: string) => void;
+  settings: {
+    aspectRatios: AspectRatio[];
+    backgroundColors: BackgroundColor[];
+  };
+  inputConfig: InputConfig;
+  setInputConfig: (config: InputConfig) => void;
+  availableMidiDevices: MidiDevice[];
+  onOpenMappings: () => void;
+  config: Config;
+  updateConfig: (updates: Partial<Config>) => void;
+  workspacePath: string | null;
+  onSelectWorkspace: () => void;
 };
 
 export const SettingsModal = ({
@@ -250,7 +337,7 @@ export const SettingsModal = ({
   updateConfig,
   workspacePath,
   onSelectWorkspace,
-}) => {
+}: SettingsModalProps) => {
   const normalizedInputType = inputConfig?.type === "osc" ? "osc" : "midi";
   const signalSourceValue = config.sequencerMode
     ? "sequencer"
@@ -339,7 +426,7 @@ export const SettingsModal = ({
                         <Select
                           id="midiDevice"
                           value={selectedMidiDeviceId}
-                          onChange={(e) => {
+                          onChange={(e: ChangeEvent<HTMLSelectElement>) => {
                             const nextDeviceId = e.target.value;
                             const selected = availableMidiDevices.find(
                               (d) => d.id === nextDeviceId
@@ -378,7 +465,7 @@ export const SettingsModal = ({
                         <DraftIntInput
                           value={inputConfig.methodTriggerChannel ?? 1}
                           fallback={inputConfig.methodTriggerChannel ?? 1}
-                          onCommit={(next) =>
+                          onCommit={(next: number) =>
                             setInputConfig({
                               ...inputConfig,
                               methodTriggerChannel: clampMidiChannel(
@@ -400,7 +487,7 @@ export const SettingsModal = ({
                         <DraftIntInput
                           value={inputConfig.trackSelectionChannel ?? 2}
                           fallback={inputConfig.trackSelectionChannel ?? 2}
-                          onCommit={(next) =>
+                          onCommit={(next: number) =>
                             setInputConfig({
                               ...inputConfig,
                               trackSelectionChannel: clampMidiChannel(
@@ -426,7 +513,7 @@ export const SettingsModal = ({
                     <Select
                       id="midiNoteMatchMode"
                       value={normalizeMidiNoteMatchMode(inputConfig.noteMatchMode)}
-                      onChange={(e) =>
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
                         setInputConfig({
                           ...inputConfig,
                           noteMatchMode: normalizeMidiNoteMatchMode(e.target.value),
@@ -459,7 +546,7 @@ export const SettingsModal = ({
                     <NumberInput
                       id="oscPort"
                       value={inputConfig.port}
-                      onChange={(e) =>
+                      onChange={(e: ChangeEvent<HTMLInputElement>) =>
                         setInputConfig({
                           ...inputConfig,
                           port: parseInt(e.target.value) || 8000,
@@ -497,7 +584,7 @@ export const SettingsModal = ({
               <DraftIntInput
                 value={config.sequencerBpm ?? 120}
                 fallback={config.sequencerBpm ?? 120}
-                onCommit={(next) => updateConfig({ sequencerBpm: next })}
+                onCommit={(next: number) => updateConfig({ sequencerBpm: next })}
                 data-testid="sequencer-bpm-input"
                 step={1}
                 className="py-1 w-full"

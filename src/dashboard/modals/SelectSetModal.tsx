@@ -1,16 +1,31 @@
 import { useState } from "react";
 import { FaPlus, FaEdit, FaTrash } from "react-icons/fa";
-import { Modal } from "../shared/Modal.jsx";
-import { SortableWrapper } from "../shared/SortableWrapper.jsx";
-import { SortableList, arrayMove } from "../shared/SortableList.jsx";
+import { Modal } from "../shared/Modal";
+import { SortableWrapper } from "../shared/SortableWrapper";
+import { SortableList, arrayMove } from "../shared/SortableList";
 import { ModalHeader } from "../components/ModalHeader";
 import { ModalFooter } from "../components/ModalFooter";
 import { Button } from "../components/Button";
 import { RadioButton, Label } from "../components/FormInputs";
 import { updateUserData } from "../core/utils";
-import { EditSetModal } from "./EditSetModal.jsx";
-import { ConfirmationModal } from "./ConfirmationModal.jsx";
+import { EditSetModal } from "./EditSetModal";
+import { ConfirmationModal } from "./ConfirmationModal";
 import { deleteRecordingsForTracks } from "../../shared/json/recordingUtils.ts";
+
+type Set = {
+  id: string;
+  name: string;
+  tracks: Array<{ id: string | number; isVisible?: boolean }>;
+};
+
+type SortableSetItemProps = {
+  set: Set;
+  activeSetId: string | null;
+  onSetSelect: (setId: string) => void;
+  onEdit: (setId: string) => void;
+  onDelete: (setId: string) => void;
+  canDelete: boolean;
+};
 
 const SortableSetItem = ({
   set,
@@ -19,7 +34,7 @@ const SortableSetItem = ({
   onEdit,
   onDelete,
   canDelete,
-}) => {
+}: SortableSetItemProps) => {
   return (
     <SortableWrapper id={set.id}>
       {({ dragHandleProps, isDragging }) => (
@@ -68,6 +83,26 @@ const SortableSetItem = ({
   );
 };
 
+type UserData = {
+  sets: Set[];
+  [key: string]: unknown;
+};
+
+type SelectSetModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  userData: UserData;
+  setUserData: (updater: unknown) => void;
+  activeTrackId: string | number | null;
+  setActiveTrackId: (id: string | number | null) => void;
+  activeSetId: string | null;
+  setActiveSetId: (id: string | null) => void;
+  recordingData: Record<string, unknown>;
+  setRecordingData: (updater: (prev: Record<string, unknown>) => Record<string, unknown>) => void;
+  onCreateSet: () => void;
+  onConfirmDelete: (message: string, onConfirm: () => void) => void;
+};
+
 export const SelectSetModal = ({
   isOpen,
   onClose,
@@ -81,13 +116,13 @@ export const SelectSetModal = ({
   setRecordingData,
   onCreateSet,
   onConfirmDelete,
-}) => {
-  const [editingSetId, setEditingSetId] = useState(null);
-  const [alertMessage, setAlertMessage] = useState(null);
+}: SelectSetModalProps) => {
+  const [editingSetId, setEditingSetId] = useState<string | null>(null);
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   const sets = userData.sets || [];
 
-  const handleSetSelect = (setId) => {
+  const handleSetSelect = (setId: string) => {
     setActiveSetId(setId);
 
     const newSet = sets.find((s) => s.id === setId);
@@ -102,7 +137,7 @@ export const SelectSetModal = ({
     onClose();
   };
 
-  const handleDeleteSet = (setId) => {
+  const handleDeleteSet = (setId: string) => {
     if (sets.length <= 1) {
       setAlertMessage("Cannot delete the last set.");
       return;
@@ -117,12 +152,13 @@ export const SelectSetModal = ({
         const trackIdsToDelete = setToDelete.tracks.map((t) => t.id);
 
         updateUserData(setUserData, (draft) => {
-          draft.sets = draft.sets.filter((s) => s.id !== setId);
+          const d = draft as unknown as UserData;
+          d.sets = d.sets.filter((s) => s.id !== setId);
         });
 
         if (trackIdsToDelete.length > 0) {
           setRecordingData((prev) =>
-            deleteRecordingsForTracks(prev, trackIdsToDelete)
+            deleteRecordingsForTracks(prev, trackIdsToDelete.map(String))
           );
         }
 
@@ -156,9 +192,10 @@ export const SelectSetModal = ({
             <Label>Select Active Set:</Label>
             <SortableList
               items={sets}
-              onReorder={(oldIndex, newIndex) => {
+              onReorder={(oldIndex: number, newIndex: number) => {
                 updateUserData(setUserData, (draft) => {
-                  draft.sets = arrayMove(draft.sets, oldIndex, newIndex);
+                  const d = draft as unknown as UserData;
+                  d.sets = arrayMove(d.sets, oldIndex, newIndex);
                 });
               }}
             >

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAtom } from "jotai";
 import { FaPlus, FaCode, FaEye, FaSpinner, FaCheck, FaExclamationTriangle } from "react-icons/fa";
-import { Modal } from "../shared/Modal.jsx";
+import { Modal } from "../shared/Modal";
 import { useIPCListener, useIPCSend } from "../core/hooks/useIPC";
 import { ModalHeader } from "../components/ModalHeader";
 import { Button } from "../components/Button";
@@ -11,6 +11,46 @@ import { activeSetIdAtom, activeTrackIdAtom } from "../core/state.ts";
 import { updateActiveSet } from "../core/utils";
 import { getActiveSetTracks } from "../../shared/utils/setUtils.ts";
 import { HELP_TEXT } from "../../shared/helpText.ts";
+
+type ModuleMethod = {
+  name: string;
+  executeOnLoad?: boolean;
+  options?: Array<{
+    name: string;
+    defaultVal?: unknown;
+  }>;
+};
+
+type PredefinedModule = {
+  id?: string;
+  name: string;
+  category: string;
+  status?: string;
+  methods?: ModuleMethod[];
+  instancesOnCurrentTrack?: number;
+};
+
+type Track = {
+  id: string | number;
+  modules: Array<{ id: string; type: string }>;
+  modulesData?: Record<string, unknown>;
+};
+
+type UserData = {
+  [key: string]: unknown;
+};
+
+type AddModuleModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  trackIndex: number | null;
+  userData: UserData;
+  setUserData: (updater: unknown) => void;
+  predefinedModules: PredefinedModule[];
+  onCreateNewModule?: () => void;
+  onEditModule: (moduleId: string) => void;
+  mode?: "add-to-track" | "manage-modules";
+};
 
 export const AddModuleModal = ({
   isOpen,
@@ -22,12 +62,15 @@ export const AddModuleModal = ({
   onCreateNewModule: _onCreateNewModule,
   onEditModule,
   mode = "add-to-track",
-}) => {
+}: AddModuleModalProps) => {
   const sendToProjector = useIPCSend("dashboard-to-projector");
-  const [hoveredPreviewModuleId, setHoveredPreviewModuleId] = useState(null);
-  const [loadingPreviewModuleId, setLoadingPreviewModuleId] = useState(null);
-  const previewRequestRef = useRef({ moduleId: null, requestId: null });
-  const lastAutoPreviewSentRef = useRef(null);
+  const [hoveredPreviewModuleId, setHoveredPreviewModuleId] = useState<string | null>(null);
+  const [loadingPreviewModuleId, setLoadingPreviewModuleId] = useState<string | null>(null);
+  const previewRequestRef = useRef<{ moduleId: string | null; requestId: string | null }>({
+    moduleId: null,
+    requestId: null,
+  });
+  const lastAutoPreviewSentRef = useRef<string | null>(null);
 
   const handleClose = () => {
     setHoveredPreviewModuleId(null);
@@ -53,12 +96,12 @@ export const AddModuleModal = ({
     trackIndex !== null && trackIndex !== undefined
       ? trackIndex
       : mode === "manage-modules" && activeTrackId
-        ? tracks.findIndex((t) => t.id === activeTrackId)
+        ? tracks.findIndex((t: { id: string | number }) => t.id === activeTrackId)
         : null;
 
-  const track =
+  const track: Track | null =
     effectiveTrackIndex !== null && effectiveTrackIndex !== -1
-      ? tracks?.[effectiveTrackIndex]
+      ? (tracks?.[effectiveTrackIndex] as Track | undefined) || null
       : null;
 
   const modulesWithTrackIndicator = useMemo(() => {
@@ -69,7 +112,7 @@ export const AddModuleModal = ({
       return list.map((m) => ({ ...m, instancesOnCurrentTrack: 0 }));
     }
 
-    const typeCounts = new Map();
+    const typeCounts = new Map<string, number>();
     modules.forEach((inst) => {
       const type = inst?.type ? String(inst.type) : "";
       if (!type) return;
@@ -85,16 +128,24 @@ export const AddModuleModal = ({
     });
   }, [predefinedModules, track]);
 
-  const handleAddToTrack = (module) => {
+  const handleAddToTrack = (module: PredefinedModule) => {
     if (!track || effectiveTrackIndex === null || effectiveTrackIndex === -1) return;
     sendToProjector("clear-preview", {});
     updateActiveSet(setUserData, activeSetId, (activeSet) => {
-      const track = activeSet.tracks[effectiveTrackIndex];
+      const tracksUnknown = (activeSet as Record<string, unknown>).tracks;
+      if (!Array.isArray(tracksUnknown)) return;
+      const trackUnknown = tracksUnknown[effectiveTrackIndex];
+      if (typeof trackUnknown !== "object" || !trackUnknown) return;
+      const t = trackUnknown as Record<string, unknown>;
+      
       const instanceId = `inst_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      track.modules.push({
+      const modulesArray = Array.isArray(t.modules) ? t.modules : [];
+      modulesArray.push({
         id: instanceId,
         type: module.id || module.name,
       });
+      t.modules = modulesArray;
+      
       const moduleMethods = Array.isArray(module.methods) ? module.methods : [];
       const hasMethodData = moduleMethods.length > 0;
       const constructorMethods = hasMethodData
@@ -126,27 +177,36 @@ export const AddModuleModal = ({
           options: [{ name: "duration", value: 0 }],
         });
       }
-      track.modulesData[instanceId] = {
+      
+      const modulesData = typeof t.modulesData === "object" && t.modulesData
+        ? (t.modulesData as Record<string, unknown>)
+        : {};
+      modulesData[instanceId] = {
         constructor: constructorMethods,
         methods: {},
       };
+      t.modulesData = modulesData;
     });
     onClose();
   };
 
-  const modulesByCategory = modulesWithTrackIndicator.reduce((acc, module) => {
-    if (!acc[module.category]) {
-      acc[module.category] = [];
-    }
-    acc[module.category].push(module);
-    return acc;
-  }, {});
+  const modulesByCategory = modulesWithTrackIndicator.reduce(
+    (acc, module) => {
+      if (!acc[module.category]) {
+        acc[module.category] = [];
+      }
+      acc[module.category].push(module);
+      return acc;
+    },
+    {} as Record<string, PredefinedModule[]>
+  );
 
-  const handlePreviewHandshake = useCallback((event, data) => {
+  const handlePreviewHandshake = useCallback((event: unknown, data: unknown) => {
     if (!data || typeof data !== "object") return;
-    if (data.type !== "preview-module-ready" && data.type !== "preview-module-error") return;
+    const d = data as Record<string, unknown>;
+    if (d.type !== "preview-module-ready" && d.type !== "preview-module-error") return;
 
-    const payload = data.props || {};
+    const payload = (d.props || {}) as Record<string, unknown>;
     const requestId = payload.requestId || null;
     if (!requestId) return;
     if (previewRequestRef.current.requestId !== requestId) return;
@@ -162,17 +222,18 @@ export const AddModuleModal = ({
 
   useIPCListener(
     "from-projector",
-    (_event, data) => {
+    (_event: unknown, data: unknown) => {
       if (!data || typeof data !== "object") return;
-      if (data.type !== "module-introspect-result") return;
-      const payload = data.props || {};
+      const d = data as Record<string, unknown>;
+      if (d.type !== "module-introspect-result") return;
+      const payload = (d.props || {}) as Record<string, unknown>;
       const moduleId = payload.moduleId || null;
       if (!moduleId) return;
       if (payload.ok) return;
       if (loadingPreviewModuleId !== moduleId) return;
 
       setLoadingPreviewModuleId(null);
-      previewRequestRef.current = { moduleId, requestId: null };
+      previewRequestRef.current = { moduleId: String(moduleId), requestId: null };
     },
     [loadingPreviewModuleId]
   );
@@ -361,7 +422,7 @@ export const AddModuleModal = ({
                             </Tooltip>
                           </span>
                         ) : null}
-                        {module.instancesOnCurrentTrack > 0 ? (
+                        {module.instancesOnCurrentTrack && module.instancesOnCurrentTrack > 0 ? (
                           <div
                             className="flex items-center gap-1 text-blue-500/50"
                             title={`${module.instancesOnCurrentTrack} instance${

@@ -25,7 +25,7 @@ type UseWorkspaceModulesArgs = {
   isWorkspaceModalOpen: boolean;
   sendToProjector: (type: string, props: Record<string, unknown>) => void;
   userData: unknown;
-  setUserData: (updater: (prev: unknown) => unknown) => void;
+  setUserData: Parameters<typeof updateUserData>[0];
   predefinedModules: ModuleEntry[];
   workspaceModuleFiles: string[];
   setPredefinedModules: Dispatch<SetStateAction<ModuleEntry[]>>;
