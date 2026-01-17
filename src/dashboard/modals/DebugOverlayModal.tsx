@@ -278,7 +278,7 @@ export const DebugOverlayModal = memo(
       </div>
       <div
         ref={logContainerRef}
-        className="flex-1 overflow-y-auto px-6 py-4 text-neutral-300 text-[11px] leading-[1.5] [scrollbar-width:none] [-ms-overflow-style:none] hide-scrollbar"
+        className="debug-log-viewer flex-1 overflow-y-auto px-6 py-4 text-neutral-300 text-[11px] leading-[1.5] [scrollbar-width:none] [-ms-overflow-style:none] hide-scrollbar"
       >
         {visibleLogs.length === 0 ? (
           <div className="text-neutral-300/30">
