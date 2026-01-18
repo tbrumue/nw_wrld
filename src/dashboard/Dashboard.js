@@ -1,15 +1,8 @@
-// Dashboard.tsx
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { useAtom } from "jotai";
-import { produce } from "immer";
-import { loadSettings } from "../shared/json/configUtils.ts";
 import { getActiveSetTracks } from "../shared/utils/setUtils.ts";
-import {
-  updateUserData,
-  updateActiveSet,
-} from "./core/utils";
-import { useIPCSend, useIPCInvoke, useIPCListener } from "./core/hooks/useIPC";
+import { useIPCSend, useIPCInvoke } from "./core/hooks/useIPC";
 import { useLatestRef } from "./core/hooks/useLatestRef";
 import {
   userDataAtom,
@@ -33,11 +26,12 @@ import { useProjectorPerfStats } from "./core/hooks/useProjectorPerfStats";
 import { useDashboardPlayback } from "./core/hooks/useDashboardPlayback";
 import { useDashboardBootstrap } from "./core/hooks/useDashboardBootstrap";
 import { useDashboardPersistence } from "./core/hooks/useDashboardPersistence";
+import { useDashboardUiState } from "./core/hooks/useDashboardUiState";
+import { useDashboardProjectorSettings } from "./core/hooks/useDashboardProjectorSettings";
+import { useDashboardInputConfiguration } from "./core/hooks/useDashboardInputConfiguration";
+import { useWorkspaceModuleIntrospectionDrain } from "./core/hooks/useWorkspaceModuleIntrospectionDrain";
+import { useDashboardUpdateConfig } from "./core/hooks/useDashboardUpdateConfig";
 import ErrorBoundary from "./components/ErrorBoundary";
-
-// =========================
-// Components
-// =========================
 
 const Dashboard = () => {
   const [userData, setUserData] = useAtom(userDataAtom);
@@ -46,23 +40,70 @@ const Dashboard = () => {
   const [activeSetId, setActiveSetId] = useAtom(activeSetIdAtom);
   const [predefinedModules, setPredefinedModules] = useState([]);
   const [selectedChannel, setSelectedChannel] = useAtom(selectedChannelAtom);
-  const [selectedTrackForModuleMenu, setSelectedTrackForModuleMenu] = useState(null);
   const [, flashChannel] = useFlashingChannels();
   const [, setFlashingConstructors] = useAtom(flashingConstructorsAtom);
 
   const sendToProjector = useIPCSend("dashboard-to-projector");
   const invokeIPC = useIPCInvoke();
 
-  const [workspacePath, setWorkspacePath] = useState(null);
-  const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
-  const [workspaceModalMode, setWorkspaceModalMode] = useState("initial");
-  const [workspaceModalPath, setWorkspaceModalPath] = useState(null);
-
-  // Module editor states
-  const [isModuleEditorOpen, setIsModuleEditorOpen] = useState(false);
-  const [editingModuleName, setEditingModuleName] = useState(null);
-  const [editingTemplateType, setEditingTemplateType] = useState(null);
-  const [isNewModuleDialogOpen, setIsNewModuleDialogOpen] = useState(false);
+  const {
+    workspacePath,
+    setWorkspacePath,
+    isWorkspaceModalOpen,
+    setIsWorkspaceModalOpen,
+    workspaceModalMode,
+    setWorkspaceModalMode,
+    workspaceModalPath,
+    setWorkspaceModalPath,
+    isCreateTrackOpen,
+    setIsCreateTrackOpen,
+    isCreateSetOpen,
+    setIsCreateSetOpen,
+    isSelectTrackModalOpen,
+    setIsSelectTrackModalOpen,
+    isSelectSetModalOpen,
+    setIsSelectSetModalOpen,
+    isSettingsModalOpen,
+    setIsSettingsModalOpen,
+    isInputMappingsModalOpen,
+    setIsInputMappingsModalOpen,
+    isReleaseNotesOpen,
+    setIsReleaseNotesOpen,
+    isAddModuleModalOpen,
+    setIsAddModuleModalOpen,
+    isManageModulesModalOpen,
+    setIsManageModulesModalOpen,
+    isDebugOverlayOpen,
+    setIsDebugOverlayOpen,
+    selectedTrackForModuleMenu,
+    setSelectedTrackForModuleMenu,
+    openAddModuleModal,
+    handleCreateNewModule,
+    handleCreateModule,
+    handleEditModule,
+    handleCloseModuleEditor,
+    isModuleEditorOpen,
+    editingModuleName,
+    editingTemplateType,
+    isNewModuleDialogOpen,
+    setIsNewModuleDialogOpen,
+    confirmationModal,
+    setConfirmationModal,
+    openAlertModal,
+    openConfirmationModal,
+    debugLogs,
+    setDebugLogs,
+    isSequencerMuted,
+    setIsSequencerMuted,
+    isProjectorReady,
+    setIsProjectorReady,
+    perfStats,
+    setPerfStats,
+    editChannelModalState,
+    setEditChannelModalState,
+    handleEditChannel,
+    handleDeleteChannel,
+  } = useDashboardUiState({ selectedChannel, setUserData, activeSetId });
 
   const userDataRef = useLatestRef(userData);
   const recordingDataRef = useLatestRef(recordingData);
@@ -84,8 +125,6 @@ const Dashboard = () => {
   const isInitialMount = useRef(true);
   const userDataLoadedSuccessfully = useRef(false);
 
-  const [aspectRatio, setAspectRatio] = useState("default");
-  const [bgColor, setBgColor] = useState("grey");
   const [inputConfig, setInputConfig] = useState({
     type: "midi",
     deviceName: "IAC Driver Bus 1",
@@ -94,41 +133,23 @@ const Dashboard = () => {
     velocitySensitive: false,
     port: 8000,
   });
-  const [availableMidiDevices, setAvailableMidiDevices] = useState([]);
   const [inputStatus, setInputStatus] = useState({
     status: "disconnected",
     message: "",
   });
-  const [settings, setSettings] = useState({
-    aspectRatios: [],
-    backgroundColors: [],
-  });
-  const [isCreateTrackOpen, setIsCreateTrackOpen] = useState(false);
-  const [isCreateSetOpen, setIsCreateSetOpen] = useState(false);
-  const [isSelectTrackModalOpen, setIsSelectTrackModalOpen] = useState(false);
-  const [isSelectSetModalOpen, setIsSelectSetModalOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [isAddModuleModalOpen, setIsAddModuleModalOpen] = useState(false);
-  const [isManageModulesModalOpen, setIsManageModulesModalOpen] = useState(false);
-  const [isDebugOverlayOpen, setIsDebugOverlayOpen] = useState(false);
-  const [isReleaseNotesOpen, setIsReleaseNotesOpen] = useState(false);
-  const [isInputMappingsModalOpen, setIsInputMappingsModalOpen] = useState(false);
-  const [confirmationModal, setConfirmationModal] = useState(null);
-  const [debugLogs, setDebugLogs] = useState([]);
-  const [isSequencerMuted, setIsSequencerMuted] = useState(false);
-  const [isProjectorReady, setIsProjectorReady] = useState(false);
-  const [perfStats, setPerfStats] = useState(null);
   const [workspaceModuleFiles, setWorkspaceModuleFiles] = useState([]);
   const [workspaceModuleLoadFailures, setWorkspaceModuleLoadFailures] = useState([]);
   const [workspaceModuleSkipped, setWorkspaceModuleSkipped] = useState([]);
   const didMigrateWorkspaceModuleTypesRef = useRef(false);
   const loadModulesRunIdRef = useRef(0);
   const sequencerMutedRef = useLatestRef(isSequencerMuted);
-  const [editChannelModalState, setEditChannelModalState] = useState({
-    isOpen: false,
-    trackIndex: null,
-    channelNumber: null,
-  });
+  const { aspectRatio, setAspectRatio, bgColor, setBgColor, settings, availableMidiDevices } =
+    useDashboardProjectorSettings({
+      userData,
+      setUserData,
+      invokeIPC,
+      sendToProjector,
+    });
 
   useInputEvents({
     userData,
@@ -150,121 +171,7 @@ const Dashboard = () => {
     setIsProjectorReady,
   });
 
-  // Module editor handlers
-  const handleCreateNewModule = () => {
-    setIsNewModuleDialogOpen(true);
-  };
-
-  const handleCreateModule = (moduleName, templateType) => {
-    setEditingModuleName(moduleName);
-    setEditingTemplateType(templateType);
-    setIsModuleEditorOpen(true);
-  };
-
-  const handleEditModule = (moduleName) => {
-    setEditingModuleName(moduleName);
-    setEditingTemplateType(null);
-    setIsModuleEditorOpen(true);
-  };
-
-  const handleCloseModuleEditor = () => {
-    setIsModuleEditorOpen(false);
-    setEditingModuleName(null);
-    setEditingTemplateType(null);
-  };
-
-  const openConfirmationModal = useCallback((message, onConfirm) => {
-    setConfirmationModal({ message, onConfirm, type: "confirm" });
-  }, []);
-
-  const openAlertModal = useCallback((message) => {
-    setConfirmationModal({ message, type: "alert" });
-  }, []);
-
-  const handleEditChannel = useCallback(
-    (channelNumber) => {
-      if (!selectedChannel) return;
-      setEditChannelModalState({
-        isOpen: true,
-        trackIndex: selectedChannel.trackIndex,
-        channelNumber: channelNumber,
-      });
-    },
-    [selectedChannel]
-  );
-
-  const handleDeleteChannel = useCallback(
-    (channelNumber) => {
-      if (!selectedChannel) return;
-      openConfirmationModal(`Are you sure you want to delete Channel ${channelNumber}?`, () => {
-        updateActiveSet(setUserData, activeSetId, (activeSet) => {
-          const currentTrack = activeSet.tracks[selectedChannel.trackIndex];
-          const channelKey = String(channelNumber);
-
-          delete currentTrack.channelMappings[channelKey];
-
-          Object.keys(currentTrack.modulesData).forEach((moduleId) => {
-            if (currentTrack.modulesData[moduleId].methods) {
-              delete currentTrack.modulesData[moduleId].methods[channelKey];
-            }
-          });
-        });
-      });
-    },
-    [selectedChannel, setUserData, openConfirmationModal, activeSetId]
-  );
-
-  // Load settings on mount
-  useEffect(() => {
-    loadSettings().then((loadedSettings) => {
-      setSettings(loadedSettings);
-    });
-
-    invokeIPC("input:get-midi-devices").then((devices) => {
-      setAvailableMidiDevices(devices);
-    });
-  }, [invokeIPC]);
-
-  // Initialize settings when userData loads (but don't overwrite user changes from settings modal)
-  useEffect(() => {
-    if (userData.config) {
-      const storedAspect = userData.config.aspectRatio;
-      setAspectRatio(!storedAspect || storedAspect === "landscape" ? "default" : storedAspect);
-      setBgColor(userData.config.bgColor || "grey");
-    }
-  }, [userData]);
-
-  useEffect(() => {
-    updateUserData(setUserData, (draft) => {
-      draft.config.aspectRatio = aspectRatio;
-    });
-  }, [aspectRatio, setUserData]);
-
-  useEffect(() => {
-    sendToProjector("toggleAspectRatioStyle", { name: aspectRatio });
-  }, [aspectRatio, sendToProjector]);
-
-  const didInitAspectRefreshRef = useRef(false);
-  useEffect(() => {
-    if (!didInitAspectRefreshRef.current) {
-      didInitAspectRefreshRef.current = true;
-      return;
-    }
-    const t = setTimeout(() => {
-      sendToProjector("refresh-projector", {});
-    }, 200);
-    return () => clearTimeout(t);
-  }, [aspectRatio, sendToProjector]);
-
-  useEffect(() => {
-    updateUserData(setUserData, (draft) => {
-      draft.config.bgColor = bgColor;
-    });
-  }, [bgColor, setUserData]);
-
-  useEffect(() => {
-    sendToProjector("setBg", { value: bgColor });
-  }, [bgColor, sendToProjector]);
+  useDashboardInputConfiguration({ userData, setUserData, invokeIPC, inputConfig });
 
   useDashboardPersistence({
     isInitialMountRef: isInitialMount,
@@ -282,34 +189,6 @@ const Dashboard = () => {
     sendToProjector,
     isSequencerMuted,
   });
-
-  const isInitialMountInput = useRef(true);
-
-  useEffect(() => {
-    if (inputConfig && !isInitialMountInput.current) {
-      updateUserData(setUserData, (draft) => {
-        draft.config.input = inputConfig;
-      });
-
-      invokeIPC("input:configure", inputConfig).catch((err) => {
-        console.error("[Dashboard] Failed to configure input:", err);
-      });
-    }
-    isInitialMountInput.current = false;
-  }, [inputConfig, invokeIPC, setUserData]);
-
-  const prevSequencerModeRef = useRef(undefined);
-  useEffect(() => {
-    const next = userData?.config?.sequencerMode;
-    const prev = prevSequencerModeRef.current;
-    prevSequencerModeRef.current = next;
-
-    if (prev === true && next === false) {
-      invokeIPC("input:configure", inputConfig).catch((err) => {
-        console.error("[Dashboard] Failed to configure input:", err);
-      });
-    }
-  }, [userData?.config?.sequencerMode, inputConfig, invokeIPC]);
 
   useModuleIntrospection({
     activeSetId,
@@ -336,74 +215,14 @@ const Dashboard = () => {
     loadModulesRunIdRef,
   });
 
-  const pendingModuleIntrospectionsRef = useRef(new Set());
-  const pendingFullWorkspaceIntrospectionRef = useRef(false);
-  const moduleIntrospectionDrainRunIdRef = useRef(0);
-  useIPCListener(
-    "workspace:modulesChanged",
-    (_event, payload) => {
-      if (!workspacePath) return;
-      const p = payload && typeof payload === "object" ? payload : null;
-      const filenameRaw = p && "filename" in p ? p.filename : null;
-      const filename = typeof filenameRaw === "string" ? filenameRaw : "";
-      if (!filename || !/\.js$/i.test(filename)) {
-        pendingFullWorkspaceIntrospectionRef.current = true;
-        return;
-      }
-      const moduleId = filename.replace(/\.js$/i, "").trim();
-      if (!/^[A-Za-z][A-Za-z0-9]*$/.test(moduleId)) return;
-      try {
-        pendingModuleIntrospectionsRef.current.add(moduleId);
-      } catch {}
-    },
-    [workspacePath]
-  );
-
-  const prevProjectorReadyRef = useRef(false);
-  useEffect(() => {
-    const prev = prevProjectorReadyRef.current;
-    prevProjectorReadyRef.current = isProjectorReady;
-    if (prev || !isProjectorReady) return;
-    if (!workspacePath) return;
-    const failures = Array.isArray(workspaceModuleLoadFailures)
-      ? workspaceModuleLoadFailures.filter(Boolean)
-      : [];
-    const pending = Array.from(pendingModuleIntrospectionsRef.current || []);
-    const pendingAll = pendingFullWorkspaceIntrospectionRef.current === true;
-    const workspaceIds =
-      pendingAll && Array.isArray(workspaceModuleFiles)
-        ? workspaceModuleFiles.map((x) => String(x || "").trim()).filter(Boolean)
-        : [];
-    const ids = Array.from(new Set([...failures, ...pending, ...workspaceIds])).filter((id) =>
-      /^[A-Za-z][A-Za-z0-9]*$/.test(String(id))
-    );
-    if (!ids.length) return;
-    try {
-      pendingModuleIntrospectionsRef.current.clear();
-    } catch {}
-    try {
-      pendingFullWorkspaceIntrospectionRef.current = false;
-    } catch {}
-    const runId = ++moduleIntrospectionDrainRunIdRef.current;
-    const batchSize = 25;
-    const drain = (startIndex) => {
-      if (moduleIntrospectionDrainRunIdRef.current !== runId) return;
-      const batch = ids.slice(startIndex, startIndex + batchSize);
-      batch.forEach((moduleId) => {
-        sendToProjector("module-introspect", { moduleId: String(moduleId) });
-      });
-      const next = startIndex + batchSize;
-      if (next >= ids.length) return;
-      setTimeout(() => drain(next), 60);
-    };
-    drain(0);
-  }, [
-    isProjectorReady,
+  useWorkspaceModuleIntrospectionDrain({
     workspacePath,
+    isProjectorReady,
     workspaceModuleLoadFailures,
     workspaceModuleFiles,
     sendToProjector,
-  ]);
+  });
+
   useDashboardBootstrap({
     isInitialMountRef: isInitialMount,
     userDataLoadedSuccessfullyRef: userDataLoadedSuccessfully,
@@ -423,11 +242,6 @@ const Dashboard = () => {
   const handleSelectWorkspace = useCallback(async () => {
     await invokeIPC("workspace:select");
   }, [invokeIPC]);
-
-  const openAddModuleModal = useCallback((trackIndex) => {
-    setSelectedTrackForModuleMenu(trackIndex);
-    setIsAddModuleModalOpen(true);
-  }, []);
 
   const firstVisibleTrack = useMemo(() => {
     if (!activeTrackId) return null;
@@ -467,127 +281,15 @@ const Dashboard = () => {
     isInitialMountRef: isInitialMount,
   });
 
-  const updateConfig = useCallback(
-    (updates) => {
-      const wasSequencerMode = userData.config?.sequencerMode;
-      const willBeSequencerMode = updates.hasOwnProperty("sequencerMode")
-        ? updates.sequencerMode
-        : wasSequencerMode;
-
-      if (
-        willBeSequencerMode &&
-        Object.prototype.hasOwnProperty.call(updates || {}, "sequencerBpm") &&
-        typeof updates.sequencerBpm === "number" &&
-        Number.isFinite(updates.sequencerBpm) &&
-        sequencerEngineRef.current
-      ) {
-        sequencerEngineRef.current.setBpm(updates.sequencerBpm);
-      }
-
-      if (wasSequencerMode && !willBeSequencerMode && isSequencerPlaying) {
-        if (sequencerEngineRef.current) {
-          sequencerEngineRef.current.stop();
-          if (typeof sequencerEngineRef.current.getRunId === "function") {
-            sequencerRunIdRef.current = sequencerEngineRef.current.getRunId();
-          }
-          setIsSequencerPlaying(false);
-          setSequencerCurrentStep(0);
-        }
-      }
-
-      const normalizeUserColors = (list) => {
-        const raw = Array.isArray(list) ? list : [];
-        const out = [];
-        const seen = new Set();
-        for (const v of raw) {
-          const s = String(v || "").trim();
-          if (!s) continue;
-          const withHash = s.startsWith("#") ? s : `#${s}`;
-          if (!/^#([0-9A-F]{3}){1,2}$/i.test(withHash)) continue;
-          let hex = withHash.toLowerCase();
-          if (hex.length === 4) {
-            const r = hex[1];
-            const g = hex[2];
-            const b = hex[3];
-            hex = `#${r}${r}${g}${g}${b}${b}`;
-          }
-          if (seen.has(hex)) continue;
-          seen.add(hex);
-          out.push(hex);
-        }
-        return out;
-      };
-
-      setUserData(
-        produce((draft) => {
-          if (!draft.config) {
-            draft.config = {};
-          }
-
-          const hasUserColors = Object.prototype.hasOwnProperty.call(updates || {}, "userColors");
-
-          if (hasUserColors) {
-            const palette = normalizeUserColors(updates.userColors);
-            draft.config.userColors = palette;
-
-            const syncOptions = (options) => {
-              const list = Array.isArray(options) ? options : [];
-              for (const opt of list) {
-                if (!opt || typeof opt !== "object") continue;
-                if (opt.randomizeFromUserColors !== true) continue;
-                if (palette.length > 0) {
-                  opt.randomValues = [...palette];
-                } else {
-                  delete opt.randomValues;
-                  delete opt.randomizeFromUserColors;
-                }
-              }
-            };
-
-            const syncMethodList = (methods) => {
-              const list = Array.isArray(methods) ? methods : [];
-              for (const m of list) {
-                if (!m || typeof m !== "object") continue;
-                syncOptions(m.options);
-              }
-            };
-
-            const sets = Array.isArray(draft.sets) ? draft.sets : [];
-            for (const set of sets) {
-              const tracks = Array.isArray(set?.tracks) ? set.tracks : [];
-              for (const track of tracks) {
-                const modulesData = track && typeof track === "object" ? track.modulesData : null;
-                if (!modulesData || typeof modulesData !== "object") continue;
-                for (const instanceId of Object.keys(modulesData)) {
-                  const md = modulesData[instanceId];
-                  if (!md || typeof md !== "object") continue;
-                  syncMethodList(md.constructor);
-                  const methodsByChannel =
-                    md.methods && typeof md.methods === "object" ? md.methods : null;
-                  if (!methodsByChannel) continue;
-                  for (const channelKey of Object.keys(methodsByChannel)) {
-                    syncMethodList(methodsByChannel[channelKey]);
-                  }
-                }
-              }
-            }
-          }
-
-          const { userColors: _userColors, ...rest } = updates || {};
-          Object.assign(draft.config, hasUserColors ? rest : updates);
-        })
-      );
-    },
-    [
-      setUserData,
-      userData.config,
-      isSequencerPlaying,
-      sequencerEngineRef,
-      sequencerRunIdRef,
-      setIsSequencerPlaying,
-      setSequencerCurrentStep,
-    ]
-  );
+  const updateConfig = useDashboardUpdateConfig({
+    setUserData,
+    userDataConfig: userData.config,
+    isSequencerPlaying,
+    sequencerEngineRef,
+    sequencerRunIdRef,
+    setIsSequencerPlaying,
+    setSequencerCurrentStep,
+  });
 
   return (
     <div className="relative bg-[#101010] font-mono h-screen flex flex-col">
@@ -721,10 +423,6 @@ const Dashboard = () => {
     </div>
   );
 };
-
-// =========================
-// Render the Dashboard
-// =========================
 
 const rootElement = document.getElementById("dashboard") || document.getElementById("root");
 if (rootElement) {

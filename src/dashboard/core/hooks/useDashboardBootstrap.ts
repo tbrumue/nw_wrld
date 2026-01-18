@@ -41,9 +41,11 @@ export const useDashboardBootstrap = ({
     const initializeUserData = async () => {
       const data = await loadUserData();
 
-      if (data && typeof data === 'object' && '_loadedSuccessfully' in data) {
-        userDataLoadedSuccessfullyRef.current = true;
-      }
+      const loadedOk =
+        data && typeof data === "object" && "_loadedSuccessfully" in data
+          ? Boolean((data as Record<string, unknown>)._loadedSuccessfully)
+          : false;
+      userDataLoadedSuccessfullyRef.current = loadedOk;
 
       const recordings = await loadRecordingData();
 
