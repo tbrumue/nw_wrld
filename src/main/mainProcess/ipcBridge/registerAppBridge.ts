@@ -110,7 +110,7 @@ export function registerAppBridge(): void {
     }
   });
 
-  ipcMain.on("bridge:app:openProjectorDevTools", (event) => {
+  ipcMain.on("bridge:app:openProjectorDevTools", (_event) => {
     try {
       const win = state.projector1Window as {
         isDestroyed?: () => boolean;

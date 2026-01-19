@@ -109,9 +109,13 @@ export const useDashboardUiState = ({ selectedChannel, setUserData, activeSetId 
       if (!selectedChannel) return;
       openConfirmationModal(`Are you sure you want to delete Channel ${channelNumber}?`, () => {
         updateActiveSet(setUserData, activeSetId, (activeSet) => {
-          const currentTrack = (activeSet as unknown as { tracks: any[] }).tracks[
+          const tracks = (activeSet as unknown as { tracks: unknown[] }).tracks;
+          const currentTrack = tracks[
             (selectedChannel as unknown as { trackIndex: number }).trackIndex
-          ];
+          ] as unknown as {
+            channelMappings: Record<string, unknown>;
+            modulesData: Record<string, { methods?: Record<string, unknown> }>;
+          };
           const channelKey = String(channelNumber);
 
           delete currentTrack.channelMappings[channelKey];
